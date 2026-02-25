@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
 } from "@/services/products";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 function slugify(text: string) {
   return text
@@ -47,23 +48,33 @@ const emptyForm: ProductFormData = {
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const { user, isAdmin, loading, signOut } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<ProductFormData>(emptyForm);
 
+  const refreshProducts = useCallback(async () => {
+    try {
+      const data = await getAllProducts();
+      setProducts(data);
+    } catch {
+      toast.error("Error al cargar productos");
+    }
+  }, []);
+
   useEffect(() => {
-    if (!sessionStorage.getItem("admin-auth")) {
+    if (!loading && (!user || !isAdmin)) {
       navigate("/admin/login");
       return;
     }
-    setProducts(getAllProducts());
-  }, [navigate]);
+    if (!loading && user && isAdmin) {
+      refreshProducts();
+    }
+  }, [user, isAdmin, loading, navigate, refreshProducts]);
 
-  const refreshProducts = () => setProducts(getAllProducts());
-
-  const handleLogout = () => {
-    sessionStorage.removeItem("admin-auth");
+  const handleLogout = async () => {
+    await signOut();
     navigate("/admin/login");
   };
 
@@ -71,7 +82,7 @@ const AdminDashboard = () => {
     setForm((f) => ({ ...f, title, slug: editing ? f.slug : slugify(title) }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const price = parseFloat(form.price);
     if (isNaN(price) || price <= 0) {
@@ -79,33 +90,37 @@ const AdminDashboard = () => {
       return;
     }
 
-    if (editing) {
-      updateProduct(editing, {
-        title: form.title,
-        slug: form.slug,
-        description: form.description,
-        price,
-        category: form.category,
-        image: form.image,
-      });
-      toast.success("Producto actualizado");
-    } else {
-      createProduct({
-        title: form.title,
-        slug: form.slug,
-        description: form.description,
-        price,
-        category: form.category,
-        image: form.image || "/placeholder.svg",
-        active: true,
-      });
-      toast.success("Producto creado");
-    }
+    try {
+      if (editing) {
+        await updateProduct(editing, {
+          title: form.title,
+          slug: form.slug,
+          description: form.description,
+          price,
+          category: form.category,
+          image: form.image,
+        });
+        toast.success("Producto actualizado");
+      } else {
+        await createProduct({
+          title: form.title,
+          slug: form.slug,
+          description: form.description,
+          price,
+          category: form.category,
+          image: form.image || "/placeholder.svg",
+          active: true,
+        });
+        toast.success("Producto creado");
+      }
 
-    setForm(emptyForm);
-    setEditing(null);
-    setShowForm(false);
-    refreshProducts();
+      setForm(emptyForm);
+      setEditing(null);
+      setShowForm(false);
+      refreshProducts();
+    } catch {
+      toast.error("Error al guardar el producto");
+    }
   };
 
   const handleEdit = (product: Product) => {
@@ -121,18 +136,34 @@ const AdminDashboard = () => {
     setShowForm(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm("¿Eliminar este producto?")) {
-      deleteProduct(id);
-      toast.success("Producto eliminado");
-      refreshProducts();
+      try {
+        await deleteProduct(id);
+        toast.success("Producto eliminado");
+        refreshProducts();
+      } catch {
+        toast.error("Error al eliminar");
+      }
     }
   };
 
-  const handleToggle = (id: string) => {
-    toggleProductActive(id);
-    refreshProducts();
+  const handleToggle = async (id: string) => {
+    try {
+      await toggleProductActive(id);
+      refreshProducts();
+    } catch {
+      toast.error("Error al cambiar estado");
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-muted-foreground">Cargando...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -167,12 +198,8 @@ const AdminDashboard = () => {
           </Button>
         </div>
 
-        {/* Form */}
         {showForm && (
-          <form
-            onSubmit={handleSubmit}
-            className="bg-card border rounded-lg p-4 md:p-6 space-y-4"
-          >
+          <form onSubmit={handleSubmit} className="bg-card border rounded-lg p-4 md:p-6 space-y-4">
             <h2 className="font-heading text-lg font-semibold text-foreground">
               {editing ? "Editar producto" : "Nuevo producto"}
             </h2>
@@ -180,48 +207,23 @@ const AdminDashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Título</Label>
-                <Input
-                  id="title"
-                  value={form.title}
-                  onChange={(e) => handleTitleChange(e.target.value)}
-                  required
-                />
+                <Input id="title" value={form.title} onChange={(e) => handleTitleChange(e.target.value)} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="slug">Slug</Label>
-                <Input
-                  id="slug"
-                  value={form.slug}
-                  onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-                  required
-                />
+                <Input id="slug" value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="price">Precio ($)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price}
-                  onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-                  required
-                />
+                <Input id="price" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category">Categoría</Label>
-                <Select
-                  value={form.category}
-                  onValueChange={(v) => setForm((f) => ({ ...f, category: v as ProductCategory }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v as ProductCategory }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
-                      </SelectItem>
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -230,54 +232,27 @@ const AdminDashboard = () => {
 
             <div className="space-y-2">
               <Label htmlFor="description">Descripción</Label>
-              <Textarea
-                id="description"
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                rows={3}
-                required
-              />
+              <Textarea id="description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} required />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="image">URL de imagen</Label>
-              <Input
-                id="image"
-                value={form.image}
-                onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))}
-                placeholder="https://... o /placeholder.svg"
-              />
+              <Input id="image" value={form.image} onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))} placeholder="https://... o /placeholder.svg" />
             </div>
 
             <div className="flex gap-2">
               <Button type="submit">{editing ? "Guardar cambios" : "Crear producto"}</Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setShowForm(false);
-                  setEditing(null);
-                  setForm(emptyForm);
-                }}
-              >
+              <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditing(null); setForm(emptyForm); }}>
                 Cancelar
               </Button>
             </div>
           </form>
         )}
 
-        {/* Product List */}
         <div className="space-y-3">
           {products.map((product) => (
-            <div
-              key={product.id}
-              className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-card border rounded-lg p-3 md:p-4"
-            >
-              <img
-                src={product.image}
-                alt={product.title}
-                className="h-14 w-14 rounded object-cover flex-shrink-0"
-              />
+            <div key={product.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-card border rounded-lg p-3 md:p-4">
+              <img src={product.image} alt={product.title} className="h-14 w-14 rounded object-cover flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-foreground truncate">{product.title}</p>
                 <p className="text-sm text-muted-foreground">
@@ -285,17 +260,9 @@ const AdminDashboard = () => {
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <Switch
-                  checked={product.active}
-                  onCheckedChange={() => handleToggle(product.id)}
-                  aria-label="Toggle active"
-                />
-                <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => handleDelete(product.id)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                <Switch checked={product.active} onCheckedChange={() => handleToggle(product.id)} aria-label="Toggle active" />
+                <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}><Pencil className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => handleDelete(product.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
               </div>
             </div>
           ))}
