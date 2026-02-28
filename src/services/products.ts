@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { Product, ProductCategory } from "@/types/product";
+import { Product, Category } from "@/types/product";
 
 interface DbProduct {
   id: string;
@@ -7,11 +7,17 @@ interface DbProduct {
   slug: string;
   description: string;
   price: number;
-  category: string;
+  category_id: string;
   image: string;
   active: boolean;
   created_at: string;
   updated_at: string;
+  categories?: {
+    id: string;
+    name: string;
+    slug: string;
+    created_at: string;
+  };
 }
 
 function mapDbProduct(row: DbProduct): Product {
@@ -21,17 +27,22 @@ function mapDbProduct(row: DbProduct): Product {
     slug: row.slug,
     description: row.description,
     price: Number(row.price),
-    category: row.category as ProductCategory,
+    categoryId: row.category_id,
+    category: row.categories
+      ? { id: row.categories.id, name: row.categories.name, slug: row.categories.slug, createdAt: row.categories.created_at }
+      : undefined,
     image: row.image,
     active: row.active,
     createdAt: row.created_at,
   };
 }
 
+const PRODUCT_SELECT = "*, categories(id, name, slug, created_at)";
+
 export async function getActiveProducts(): Promise<Product[]> {
   const { data, error } = await supabase
     .from("products")
-    .select("*")
+    .select(PRODUCT_SELECT)
     .eq("active", true)
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -41,7 +52,7 @@ export async function getActiveProducts(): Promise<Product[]> {
 export async function getAllProducts(): Promise<Product[]> {
   const { data, error } = await supabase
     .from("products")
-    .select("*")
+    .select(PRODUCT_SELECT)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data as DbProduct[]).map(mapDbProduct);
@@ -50,7 +61,7 @@ export async function getAllProducts(): Promise<Product[]> {
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   const { data, error } = await supabase
     .from("products")
-    .select("*")
+    .select(PRODUCT_SELECT)
     .eq("slug", slug)
     .maybeSingle();
   if (error) throw error;
@@ -60,14 +71,14 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 export async function getProductById(id: string): Promise<Product | null> {
   const { data, error } = await supabase
     .from("products")
-    .select("*")
+    .select(PRODUCT_SELECT)
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
   return data ? mapDbProduct(data as DbProduct) : null;
 }
 
-export async function createProduct(product: Omit<Product, "id" | "createdAt">): Promise<Product> {
+export async function createProduct(product: Omit<Product, "id" | "createdAt" | "category">): Promise<Product> {
   const { data, error } = await supabase
     .from("products")
     .insert({
@@ -75,23 +86,23 @@ export async function createProduct(product: Omit<Product, "id" | "createdAt">):
       slug: product.slug,
       description: product.description,
       price: product.price,
-      category: product.category,
+      category_id: product.categoryId,
       image: product.image,
       active: product.active,
     })
-    .select()
+    .select(PRODUCT_SELECT)
     .single();
   if (error) throw error;
   return mapDbProduct(data as DbProduct);
 }
 
-export async function updateProduct(id: string, updates: Partial<Product>): Promise<Product> {
+export async function updateProduct(id: string, updates: Partial<Omit<Product, "category">>): Promise<Product> {
   const dbUpdates: Record<string, unknown> = {};
   if (updates.title !== undefined) dbUpdates.title = updates.title;
   if (updates.slug !== undefined) dbUpdates.slug = updates.slug;
   if (updates.description !== undefined) dbUpdates.description = updates.description;
   if (updates.price !== undefined) dbUpdates.price = updates.price;
-  if (updates.category !== undefined) dbUpdates.category = updates.category;
+  if (updates.categoryId !== undefined) dbUpdates.category_id = updates.categoryId;
   if (updates.image !== undefined) dbUpdates.image = updates.image;
   if (updates.active !== undefined) dbUpdates.active = updates.active;
 
@@ -99,7 +110,7 @@ export async function updateProduct(id: string, updates: Partial<Product>): Prom
     .from("products")
     .update(dbUpdates)
     .eq("id", id)
-    .select()
+    .select(PRODUCT_SELECT)
     .single();
   if (error) throw error;
   return mapDbProduct(data as DbProduct);

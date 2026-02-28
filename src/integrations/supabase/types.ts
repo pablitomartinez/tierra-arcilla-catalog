@@ -14,10 +14,31 @@ export type Database = {
   }
   public: {
     Tables: {
+      categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           active: boolean
-          category: string
+          category_id: string
           created_at: string
           description: string
           id: string
@@ -29,7 +50,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
-          category?: string
+          category_id: string
           created_at?: string
           description?: string
           id?: string
@@ -41,7 +62,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
-          category?: string
+          category_id?: string
           created_at?: string
           description?: string
           id?: string
@@ -51,7 +72,15 @@ export type Database = {
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

@@ -1,25 +1,14 @@
 import { useParams, Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { PublicLayout } from "@/layouts/PublicLayout";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
-import { getProductBySlug } from "@/services/products";
-import { CATEGORY_LABELS } from "@/types/product";
-import { Product } from "@/types/product";
+import { useProductBySlug } from "@/hooks/useProducts";
 import { ArrowLeft } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const ProductDetail = () => {
   const { slug } = useParams<{ slug: string }>();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (slug) {
-      getProductBySlug(slug)
-        .then(setProduct)
-        .catch(() => setProduct(null))
-        .finally(() => setLoading(false));
-    }
-  }, [slug]);
+  const { data: product, isLoading, isError } = useProductBySlug(slug);
 
   useEffect(() => {
     if (product) {
@@ -28,17 +17,27 @@ const ProductDetail = () => {
     return () => { document.title = "Tierra Arcilla – Cerámica Artesanal"; };
   }, [product]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <PublicLayout>
-        <div className="container py-20 text-center">
-          <p className="text-muted-foreground">Cargando...</p>
+        <div className="container py-8 md:py-16">
+          <Skeleton className="h-4 w-32 mb-6" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
+            <Skeleton className="aspect-square w-full rounded-lg" />
+            <div className="space-y-4">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-10 w-3/4" />
+              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-12 w-48" />
+            </div>
+          </div>
         </div>
       </PublicLayout>
     );
   }
 
-  if (!product) {
+  if (isError || !product) {
     return (
       <PublicLayout>
         <div className="container py-20 text-center">
@@ -61,7 +60,7 @@ const ProductDetail = () => {
           </div>
           <div className="flex flex-col justify-center space-y-5">
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              {CATEGORY_LABELS[product.category]}
+              {product.category?.name ?? "Sin categoría"}
             </span>
             <h1 className="font-heading text-3xl md:text-4xl font-bold text-foreground leading-tight">{product.title}</h1>
             <p className="text-2xl font-semibold text-primary">${product.price.toLocaleString("es-AR")}</p>
