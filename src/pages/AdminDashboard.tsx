@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,14 +8,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { brand } from "@/config/brand";
-import { Product, ProductCategory, CATEGORY_LABELS } from "@/types/product";
+import { Product, Category } from "@/types/product";
 import {
-  getAllProducts,
   createProduct,
   updateProduct,
   deleteProduct,
   toggleProductActive,
 } from "@/services/products";
+import { createCategory, deleteCategory } from "@/services/categories";
+import { useAllProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
+import { productKeys } from "@/hooks/useProducts";
+import { categoryKeys } from "@/hooks/useCategories";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -33,7 +38,7 @@ interface ProductFormData {
   slug: string;
   description: string;
   price: string;
-  category: ProductCategory;
+  categoryId: string;
   image: string;
 }
 
@@ -42,36 +47,35 @@ const emptyForm: ProductFormData = {
   slug: "",
   description: "",
   price: "",
-  category: "bowls",
+  categoryId: "",
   image: "",
 };
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { user, isAdmin, loading, signOut } = useAuth();
-  const [products, setProducts] = useState<Product[]>([]);
+  const queryClient = useQueryClient();
+  const { user, isAdmin, loading: authLoading, signOut } = useAuth();
+  const { data: products = [] } = useAllProducts();
+  const { data: categories = [] } = useCategories();
+
   const [editing, setEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<ProductFormData>(emptyForm);
 
-  const refreshProducts = useCallback(async () => {
-    try {
-      const data = await getAllProducts();
-      setProducts(data);
-    } catch {
-      toast.error("Error al cargar productos");
-    }
-  }, []);
+  // Category form
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
 
   useEffect(() => {
-    if (!loading && (!user || !isAdmin)) {
+    if (!authLoading && (!user || !isAdmin)) {
       navigate("/admin/login");
-      return;
     }
-    if (!loading && user && isAdmin) {
-      refreshProducts();
-    }
-  }, [user, isAdmin, loading, navigate, refreshProducts]);
+  }, [user, isAdmin, authLoading, navigate]);
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: productKeys.all });
+    queryClient.invalidateQueries({ queryKey: productKeys.active });
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -89,6 +93,10 @@ const AdminDashboard = () => {
       toast.error("Ingresá un precio válido");
       return;
     }
+    if (!form.categoryId) {
+      toast.error("Seleccioná una categoría");
+      return;
+    }
 
     try {
       if (editing) {
@@ -97,7 +105,7 @@ const AdminDashboard = () => {
           slug: form.slug,
           description: form.description,
           price,
-          category: form.category,
+          categoryId: form.categoryId,
           image: form.image,
         });
         toast.success("Producto actualizado");
@@ -107,7 +115,7 @@ const AdminDashboard = () => {
           slug: form.slug,
           description: form.description,
           price,
-          category: form.category,
+          categoryId: form.categoryId,
           image: form.image || "/placeholder.svg",
           active: true,
         });
@@ -117,7 +125,7 @@ const AdminDashboard = () => {
       setForm(emptyForm);
       setEditing(null);
       setShowForm(false);
-      refreshProducts();
+      invalidate();
     } catch {
       toast.error("Error al guardar el producto");
     }
@@ -129,7 +137,7 @@ const AdminDashboard = () => {
       slug: product.slug,
       description: product.description,
       price: product.price.toString(),
-      category: product.category,
+      categoryId: product.categoryId,
       image: product.image,
     });
     setEditing(product.id);
@@ -141,7 +149,7 @@ const AdminDashboard = () => {
       try {
         await deleteProduct(id);
         toast.success("Producto eliminado");
-        refreshProducts();
+        invalidate();
       } catch {
         toast.error("Error al eliminar");
       }
@@ -151,13 +159,40 @@ const AdminDashboard = () => {
   const handleToggle = async (id: string) => {
     try {
       await toggleProductActive(id);
-      refreshProducts();
+      invalidate();
     } catch {
       toast.error("Error al cambiar estado");
     }
   };
 
-  if (loading) {
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    try {
+      await createCategory({ name: newCategoryName.trim(), slug: slugify(newCategoryName) });
+      toast.success("Categoría creada");
+      setNewCategoryName("");
+      setShowCategoryForm(false);
+      queryClient.invalidateQueries({ queryKey: categoryKeys.all });
+    } catch {
+      toast.error("Error al crear categoría");
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (window.confirm("¿Eliminar esta categoría? Los productos asociados podrían verse afectados.")) {
+      try {
+        await deleteCategory(id);
+        toast.success("Categoría eliminada");
+        queryClient.invalidateQueries({ queryKey: categoryKeys.all });
+        invalidate();
+      } catch {
+        toast.error("Error al eliminar categoría");
+      }
+    }
+  };
+
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <p className="text-muted-foreground">Cargando...</p>
@@ -171,102 +206,128 @@ const AdminDashboard = () => {
         <div className="container flex h-14 items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="font-heading text-lg font-bold text-foreground">{brand.name}</span>
-            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
-              Admin
-            </span>
+            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Admin</span>
           </div>
           <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5">
-            <LogOut className="h-4 w-4" />
-            Salir
+            <LogOut className="h-4 w-4" />Salir
           </Button>
         </div>
       </header>
 
-      <div className="container py-6 md:py-10 space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h1 className="font-heading text-2xl font-bold text-foreground">Productos</h1>
-          <Button
-            onClick={() => {
-              setForm(emptyForm);
-              setEditing(null);
-              setShowForm(!showForm);
-            }}
-            className="gap-1.5"
-          >
-            <Plus className="h-4 w-4" />
-            Nuevo producto
-          </Button>
-        </div>
+      <div className="container py-6 md:py-10 space-y-8">
+        {/* Categories Section */}
+        <section className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <h2 className="font-heading text-xl font-bold text-foreground">Categorías</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCategoryForm(!showCategoryForm)}
+              className="gap-1.5"
+            >
+              <Plus className="h-4 w-4" />Nueva categoría
+            </Button>
+          </div>
 
-        {showForm && (
-          <form onSubmit={handleSubmit} className="bg-card border rounded-lg p-4 md:p-6 space-y-4">
-            <h2 className="font-heading text-lg font-semibold text-foreground">
-              {editing ? "Editar producto" : "Nuevo producto"}
-            </h2>
+          {showCategoryForm && (
+            <form onSubmit={handleCreateCategory} className="bg-card border rounded-lg p-4 flex gap-3 items-end">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="cat-name">Nombre</Label>
+                <Input id="cat-name" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} required placeholder="Ej: Cuencos" />
+              </div>
+              <Button type="submit" size="sm">Crear</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowCategoryForm(false)}>Cancelar</Button>
+            </form>
+          )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Título</Label>
-                <Input id="title" value={form.title} onChange={(e) => handleTitleChange(e.target.value)} required />
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => (
+              <div key={cat.id} className="flex items-center gap-1 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-full text-sm">
+                {cat.name}
+                <button onClick={() => handleDeleteCategory(cat.id)} className="ml-1 text-destructive hover:text-destructive/80">
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Products Section */}
+        <section className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <h1 className="font-heading text-2xl font-bold text-foreground">Productos</h1>
+            <Button
+              onClick={() => { setForm(emptyForm); setEditing(null); setShowForm(!showForm); }}
+              className="gap-1.5"
+            >
+              <Plus className="h-4 w-4" />Nuevo producto
+            </Button>
+          </div>
+
+          {showForm && (
+            <form onSubmit={handleSubmit} className="bg-card border rounded-lg p-4 md:p-6 space-y-4">
+              <h2 className="font-heading text-lg font-semibold text-foreground">
+                {editing ? "Editar producto" : "Nuevo producto"}
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Título</Label>
+                  <Input id="title" value={form.title} onChange={(e) => handleTitleChange(e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="slug">Slug</Label>
+                  <Input id="slug" value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="price">Precio ($)</Label>
+                  <Input id="price" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Categoría</Label>
+                  <Select value={form.categoryId} onValueChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar categoría" /></SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="slug">Slug</Label>
-                <Input id="slug" value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} required />
+                <Label htmlFor="description">Descripción</Label>
+                <Textarea id="description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="price">Precio ($)</Label>
-                <Input id="price" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} required />
+                <Label htmlFor="image">URL de imagen</Label>
+                <Input id="image" value={form.image} onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))} placeholder="https://... o /placeholder.svg" />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="category">Categoría</Label>
-                <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v as ProductCategory }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex gap-2">
+                <Button type="submit">{editing ? "Guardar cambios" : "Crear producto"}</Button>
+                <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditing(null); setForm(emptyForm); }}>Cancelar</Button>
               </div>
-            </div>
+            </form>
+          )}
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Descripción</Label>
-              <Textarea id="description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} required />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="image">URL de imagen</Label>
-              <Input id="image" value={form.image} onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))} placeholder="https://... o /placeholder.svg" />
-            </div>
-
-            <div className="flex gap-2">
-              <Button type="submit">{editing ? "Guardar cambios" : "Crear producto"}</Button>
-              <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditing(null); setForm(emptyForm); }}>
-                Cancelar
-              </Button>
-            </div>
-          </form>
-        )}
-
-        <div className="space-y-3">
-          {products.map((product) => (
-            <div key={product.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-card border rounded-lg p-3 md:p-4">
-              <img src={product.image} alt={product.title} className="h-14 w-14 rounded object-cover flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-foreground truncate">{product.title}</p>
-                <p className="text-sm text-muted-foreground">
-                  {CATEGORY_LABELS[product.category]} · ${product.price.toLocaleString("es-AR")}
-                </p>
+          <div className="space-y-3">
+            {products.map((product) => (
+              <div key={product.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-card border rounded-lg p-3 md:p-4">
+                <img src={product.image} alt={product.title} className="h-14 w-14 rounded object-cover flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-foreground truncate">{product.title}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {product.category?.name ?? "Sin categoría"} · ${product.price.toLocaleString("es-AR")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Switch checked={product.active} onCheckedChange={() => handleToggle(product.id)} aria-label="Toggle active" />
+                  <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}><Pencil className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleDelete(product.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Switch checked={product.active} onCheckedChange={() => handleToggle(product.id)} aria-label="Toggle active" />
-                <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}><Pencil className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" onClick={() => handleDelete(product.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );

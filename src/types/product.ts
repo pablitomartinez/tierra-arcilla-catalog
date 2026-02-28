@@ -1,22 +1,19 @@
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: string;
+}
+
 export interface Product {
   id: string;
   title: string;
   slug: string;
   description: string;
   price: number;
-  category: ProductCategory;
+  categoryId: string;
+  category?: Category;
   image: string;
   active: boolean;
   createdAt: string;
 }
-
-export type ProductCategory = "bowls" | "vases" | "plates" | "mugs" | "planters" | "trays";
-
-export const CATEGORY_LABELS: Record<ProductCategory, string> = {
-  bowls: "Bowls",
-  vases: "Jarrones",
-  plates: "Platos",
-  mugs: "Tazas",
-  planters: "Macetas",
-  trays: "Bandejas",
-};

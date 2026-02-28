@@ -1,20 +1,16 @@
-import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { PublicLayout } from "@/layouts/PublicLayout";
 import { ProductCard } from "@/components/ProductCard";
-import { getActiveProducts } from "@/services/products";
+import { useActiveProducts } from "@/hooks/useProducts";
 import { brand } from "@/config/brand";
 import heroImage from "@/assets/hero-ceramic.jpg";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Product } from "@/types/product";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Index = () => {
-  const [products, setProducts] = useState<Product[]>([]);
-
-  useEffect(() => {
-    getActiveProducts().then((data) => setProducts(data.slice(0, 6))).catch(() => {});
-  }, []);
+  const { data: products = [], isLoading } = useActiveProducts();
+  const featured = products.slice(0, 6);
 
   return (
     <PublicLayout>
@@ -47,11 +43,24 @@ const Index = () => {
           <h2 className="font-heading text-3xl md:text-4xl font-bold text-foreground">Nuestras Piezas</h2>
           <p className="text-muted-foreground max-w-xl mx-auto">Cada pieza es única, moldeada a mano con dedicación y materiales nobles.</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="space-y-3">
+                <Skeleton className="aspect-square w-full rounded-lg" />
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="h-4 w-1/4" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+            {featured.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
         <div className="mt-12 text-center">
           <Button asChild variant="outline" size="lg" className="gap-2 font-body">
             <Link to="/productos">Ver todos los productos<ArrowRight className="h-4 w-4" /></Link>

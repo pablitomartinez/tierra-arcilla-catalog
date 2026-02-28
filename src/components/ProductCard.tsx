@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Product, CATEGORY_LABELS } from "@/types/product";
+import { Product } from "@/types/product";
 
 interface ProductCardProps {
   product: Product;
@@ -21,7 +21,7 @@ export function ProductCard({ product }: ProductCardProps) {
       </div>
       <div className="p-4 space-y-1.5">
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {CATEGORY_LABELS[product.category]}
+          {product.category?.name ?? "Sin categoría"}
         </span>
         <h3 className="font-heading text-lg font-semibold text-foreground leading-tight">
           {product.title}
