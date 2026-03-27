@@ -303,10 +303,16 @@ const AdminDashboard = () => {
                 <Label htmlFor="description">Descripción</Label>
                 <Textarea id="description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} required />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="image">URL de imagen</Label>
-                <Input id="image" value={form.image} onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))} placeholder="https://... o /placeholder.svg" />
-              </div>
+              {/* Image uploader — only when editing (product already saved) */}
+              {editing && (
+                <ProductImageUploader
+                  productId={editing}
+                  onImagesChanged={() => {
+                    invalidate();
+                    invalidateImages(editing);
+                  }}
+                />
+              )}
               <div className="flex gap-2">
                 <Button type="submit">{editing ? "Guardar cambios" : "Crear producto"}</Button>
                 <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditing(null); setForm(emptyForm); }}>Cancelar</Button>
