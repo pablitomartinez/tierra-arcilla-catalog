@@ -23,8 +23,10 @@ import { categoryKeys } from "@/hooks/useCategories";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+
 import ProductImageUploader from "@/components/admin/ProductImageUploader";
 import { useInvalidateProductImages } from "@/hooks/useProductImages";
+
 
 function slugify(text: string) {
   return text
@@ -91,17 +93,21 @@ const AdminDashboard = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     const price = parseFloat(form.price);
+
     if (isNaN(price) || price <= 0) {
       toast.error("Ingresá un precio válido");
       return;
     }
+
     if (!form.categoryId) {
       toast.error("Seleccioná una categoría");
       return;
     }
 
     try {
+
       if (editing) {
         await updateProduct(editing, {
           title: form.title,
@@ -135,7 +141,7 @@ const AdminDashboard = () => {
       toast.error("Error al guardar el producto");
     }
   };
-
+  
   const handleEdit = (product: Product) => {
     setForm({
       title: product.title,
@@ -191,8 +197,9 @@ const AdminDashboard = () => {
         toast.success("Categoría eliminada");
         queryClient.invalidateQueries({ queryKey: categoryKeys.all });
         invalidate();
-      } catch {
-        toast.error("Error al eliminar categoría");
+      } catch (error: any) {
+        console.error(error);
+        toast.error(error.message ?? "Error al eliminar categoría");
       }
     }
   };
@@ -313,6 +320,7 @@ const AdminDashboard = () => {
                   }}
                 />
               )}
+
               <div className="flex gap-2">
                 <Button type="submit">{editing ? "Guardar cambios" : "Crear producto"}</Button>
                 <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditing(null); setForm(emptyForm); }}>Cancelar</Button>

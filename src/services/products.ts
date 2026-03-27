@@ -127,3 +127,16 @@ export async function toggleProductActive(id: string): Promise<Product> {
   if (!product) throw new Error("Product not found");
   return updateProduct(id, { active: !product.active });
 }
+
+
+// ADD IMAGES 
+export async function addProductImage(productId: string, url: string) {
+  const { error } = await supabase
+    .from("product_images")
+    .insert({
+      product_id: productId,
+      url,
+    })
+
+  if (error) throw error
+}
