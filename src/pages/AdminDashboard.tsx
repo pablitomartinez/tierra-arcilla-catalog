@@ -63,6 +63,7 @@ const AdminDashboard = () => {
   const [editing, setEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<ProductFormData>(emptyForm);
+  const invalidateImages = useInvalidateProductImages();
 
   // Category form
   const [showCategoryForm, setShowCategoryForm] = useState(false);
