@@ -112,8 +112,11 @@ const AdminDashboard = () => {
           image: form.image,
         });
         toast.success("Producto actualizado");
+        setForm(emptyForm);
+        setEditing(null);
+        setShowForm(false);
       } else {
-        await createProduct({
+        const created = await createProduct({
           title: form.title,
           slug: form.slug,
           description: form.description,
@@ -122,12 +125,11 @@ const AdminDashboard = () => {
           image: form.image || "/placeholder.svg",
           active: true,
         });
-        toast.success("Producto creado");
+        toast.success("Producto creado — ahora podés agregar imágenes");
+        // Stay in edit mode so user can add images
+        setEditing(created.id);
+        setForm((f) => ({ ...f, image: created.image }));
       }
-
-      setForm(emptyForm);
-      setEditing(null);
-      setShowForm(false);
       invalidate();
     } catch {
       toast.error("Error al guardar el producto");
