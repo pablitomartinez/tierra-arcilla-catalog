@@ -23,6 +23,8 @@ import { categoryKeys } from "@/hooks/useCategories";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import ProductImageUploader from "@/components/admin/ProductImageUploader";
+import { useInvalidateProductImages } from "@/hooks/useProductImages";
 
 function slugify(text: string) {
   return text
