@@ -23,6 +23,8 @@ import { categoryKeys } from "@/hooks/useCategories";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import ProductImageUploader from "@/components/admin/ProductImageUploader";
+import { useInvalidateProductImages } from "@/hooks/useProductImages";
 
 function slugify(text: string) {
   return text
@@ -61,6 +63,7 @@ const AdminDashboard = () => {
   const [editing, setEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<ProductFormData>(emptyForm);
+  const invalidateImages = useInvalidateProductImages();
 
   // Category form
   const [showCategoryForm, setShowCategoryForm] = useState(false);
@@ -109,8 +112,11 @@ const AdminDashboard = () => {
           image: form.image,
         });
         toast.success("Producto actualizado");
+        setForm(emptyForm);
+        setEditing(null);
+        setShowForm(false);
       } else {
-        await createProduct({
+        const created = await createProduct({
           title: form.title,
           slug: form.slug,
           description: form.description,
@@ -119,12 +125,11 @@ const AdminDashboard = () => {
           image: form.image || "/placeholder.svg",
           active: true,
         });
-        toast.success("Producto creado");
+        toast.success("Producto creado — ahora podés agregar imágenes");
+        // Stay in edit mode so user can add images
+        setEditing(created.id);
+        setForm((f) => ({ ...f, image: created.image }));
       }
-
-      setForm(emptyForm);
-      setEditing(null);
-      setShowForm(false);
       invalidate();
     } catch {
       toast.error("Error al guardar el producto");
@@ -298,10 +303,16 @@ const AdminDashboard = () => {
                 <Label htmlFor="description">Descripción</Label>
                 <Textarea id="description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} required />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="image">URL de imagen</Label>
-                <Input id="image" value={form.image} onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))} placeholder="https://... o /placeholder.svg" />
-              </div>
+              {/* Image uploader — only when editing (product already saved) */}
+              {editing && (
+                <ProductImageUploader
+                  productId={editing}
+                  onImagesChanged={() => {
+                    invalidate();
+                    invalidateImages(editing);
+                  }}
+                />
+              )}
               <div className="flex gap-2">
                 <Button type="submit">{editing ? "Guardar cambios" : "Crear producto"}</Button>
                 <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditing(null); setForm(emptyForm); }}>Cancelar</Button>
