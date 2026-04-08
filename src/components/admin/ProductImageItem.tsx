@@ -1,17 +1,17 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Trash2, Star } from "lucide-react";
-import { SortableImage, sortableImageId } from "@/types/productImage";
+import { DraftImage } from "@/types/productImage";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  image: SortableImage;
+  image: DraftImage;
   index: number;
-  onRemove: (img: SortableImage) => void;
+  onRemove: (img: DraftImage) => void;
 }
 
 export default function ProductImageItem({ image, index, onRemove }: Props) {
-  const id = sortableImageId(image);
+  const id = image.id;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
 
@@ -20,7 +20,6 @@ export default function ProductImageItem({ image, index, onRemove }: Props) {
     transition,
   };
 
-  const src = image.kind === "existing" ? image.data.url : image.data.previewUrl;
   const isCover = index === 0;
 
   return (
@@ -31,10 +30,10 @@ export default function ProductImageItem({ image, index, onRemove }: Props) {
         "group relative aspect-square rounded-lg border-2 overflow-hidden bg-muted",
         isDragging && "opacity-50 z-50",
         isCover ? "border-primary" : "border-border",
-        image.kind === "pending" && "ring-2 ring-accent/40",
+        "ring-2 ring-accent/40",
       )}
     >
-      <img src={src} alt="" className="h-full w-full object-cover" />
+      <img src={image.previewUrl} alt="" className="h-full w-full object-cover" />
 
       {/* Cover badge */}
       {isCover && (
@@ -43,12 +42,9 @@ export default function ProductImageItem({ image, index, onRemove }: Props) {
         </span>
       )}
 
-      {/* Pending badge */}
-      {image.kind === "pending" && (
-        <span className="absolute top-1.5 right-1.5 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-accent-foreground">
-          Nueva
-        </span>
-      )}
+      <span className="absolute top-1.5 right-1.5 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-accent-foreground">
+        Nueva
+      </span>
 
       {/* Overlay actions */}
       <div className="absolute inset-0 flex items-end justify-between bg-gradient-to-t from-black/50 to-transparent opacity-0 transition-opacity group-hover:opacity-100">

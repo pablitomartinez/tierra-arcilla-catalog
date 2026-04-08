@@ -9,6 +9,17 @@ interface DbProductImage {
   created_at: string;
 }
 
+interface ProductImageInsert {
+  product_id: string;
+  url: string;
+  position: number;
+}
+
+interface UploadedProductImage {
+  path: string;
+  publicUrl: string;
+}
+
 function mapRow(row: DbProductImage): ProductImage {
   return {
     id: row.id,
@@ -29,36 +40,52 @@ export async function getProductImages(productId: string): Promise<ProductImage[
   return (data as DbProductImage[]).map(mapRow);
 }
 
-export async function uploadProductImage(
+export async function uploadImageToProductStorage(
   productId: string,
   file: File,
-  position: number,
-): Promise<ProductImage> {
-  const ext = file.name.split(".").pop() ?? "jpg";
-  const path = `${productId}/${crypto.randomUUID()}.${ext}`;
+  index: number,
+): Promise<UploadedProductImage> {
+  const path = `products/${productId}/${index}.jpg`;
 
   const { error: uploadError } = await supabase.storage
     .from("products")
-    .upload(path, file, { upsert: false });
+    .upload(path, file, {
+      upsert: false,
+      contentType: file.type || "image/jpeg",
+    });
   if (uploadError) throw uploadError;
 
-  const { data: urlData } = supabase.storage.from("products").getPublicUrl(path);
+  const { data } = supabase.storage.from("products").getPublicUrl(path);
+  return {
+    path,
+    publicUrl: data.publicUrl,
+  };
+}
+
+export async function removeImagesFromStorage(paths: string[]): Promise<void> {
+  if (paths.length === 0) return;
+
+  const { error } = await supabase.storage.from("products").remove(paths);
+  if (error) throw error;
+}
+
+export async function insertProductImages(images: ProductImageInsert[]): Promise<ProductImage[]> {
+  if (images.length === 0) return [];
 
   const { data, error } = await supabase
     .from("product_images")
-    .insert({ product_id: productId, url: urlData.publicUrl, position })
-    .select("*")
-    .single();
+    .insert(images)
+    .select("*");
   if (error) throw error;
-  return mapRow(data as DbProductImage);
+
+  return (data as DbProductImage[]).map(mapRow);
 }
 
 export async function deleteProductImage(image: ProductImage): Promise<void> {
-  // Extract storage path from URL
   const url = new URL(image.url);
   const pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/products\/(.+)/);
   if (pathMatch) {
-    await supabase.storage.from("products").remove([pathMatch[1]]);
+    await removeImagesFromStorage([pathMatch[1]]);
   }
 
   const { error } = await supabase
@@ -71,11 +98,10 @@ export async function deleteProductImage(image: ProductImage): Promise<void> {
 export async function updateImagePositions(
   images: { id: string; position: number }[],
 ): Promise<void> {
-  // Update each image's position
   const promises = images.map(({ id, position }) =>
     supabase.from("product_images").update({ position }).eq("id", id),
   );
   const results = await Promise.all(promises);
-  const err = results.find((r) => r.error);
+  const err = results.find((result) => result.error);
   if (err?.error) throw err.error;
 }

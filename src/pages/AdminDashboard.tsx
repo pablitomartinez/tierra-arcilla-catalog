@@ -9,12 +9,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { brand } from "@/config/brand";
 import { Product, Category } from "@/types/product";
+import { DraftImage } from "@/types/productImage";
 import {
   createProduct,
   updateProduct,
   deleteProduct,
   toggleProductActive,
 } from "@/services/products";
+import {
+  insertProductImages,
+  removeImagesFromStorage,
+  uploadImageToProductStorage,
+} from "@/services/productImages";
 import { createCategory, deleteCategory } from "@/services/categories";
 import { useAllProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
@@ -25,8 +31,6 @@ import { Plus, Pencil, Trash2, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 import ProductImageUploader from "@/components/admin/ProductImageUploader";
-import { useInvalidateProductImages } from "@/hooks/useProductImages";
-
 
 function slugify(text: string) {
   return text
@@ -65,7 +69,8 @@ const AdminDashboard = () => {
   const [editing, setEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<ProductFormData>(emptyForm);
-  const invalidateImages = useInvalidateProductImages();
+  const [draftImages, setDraftImages] = useState<DraftImage[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Category form
   const [showCategoryForm, setShowCategoryForm] = useState(false);
@@ -82,6 +87,13 @@ const AdminDashboard = () => {
     queryClient.invalidateQueries({ queryKey: productKeys.active });
   };
 
+  const clearDraftImages = () => {
+    for (const image of draftImages) {
+      URL.revokeObjectURL(image.previewUrl);
+    }
+    setDraftImages([]);
+  };
+
   const handleLogout = async () => {
     await signOut();
     navigate("/admin/login");
@@ -93,6 +105,7 @@ const AdminDashboard = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     const price = parseFloat(form.price);
 
@@ -106,8 +119,9 @@ const AdminDashboard = () => {
       return;
     }
 
-    try {
+    setIsSubmitting(true);
 
+    try {
       if (editing) {
         await updateProduct(editing, {
           title: form.title,
@@ -117,28 +131,74 @@ const AdminDashboard = () => {
           categoryId: form.categoryId,
           image: form.image,
         });
+
         toast.success("Producto actualizado");
         setForm(emptyForm);
+        clearDraftImages();
         setEditing(null);
         setShowForm(false);
-      } else {
-        const created = await createProduct({
-          title: form.title,
-          slug: form.slug,
-          description: form.description,
-          price,
-          categoryId: form.categoryId,
-          image: form.image || "/placeholder.svg",
-          active: true,
-        });
-        toast.success("Producto creado — ahora podés agregar imágenes");
-        // Stay in edit mode so user can add images
-        setEditing(created.id);
-        setForm((f) => ({ ...f, image: created.image }));
+        invalidate();
+        return;
       }
+
+      const created = await createProduct({
+        title: form.title,
+        slug: form.slug,
+        description: form.description,
+        price,
+        categoryId: form.categoryId,
+        image: form.image || "/placeholder.svg",
+        active: true,
+      });
+
+      const uploadedImages: { path: string; url: string; position: number }[] = [];
+
+      try {
+        if (draftImages.length > 0) {
+          for (const [index, draftImage] of draftImages.entries()) {
+            const uploaded = await uploadImageToProductStorage(created.id, draftImage.file, index);
+            uploadedImages.push({
+              path: uploaded.path,
+              url: uploaded.publicUrl,
+              position: index,
+            });
+          }
+
+          await insertProductImages(
+            uploadedImages.map((image) => ({
+              product_id: created.id,
+              url: image.url,
+              position: image.position,
+            })),
+          );
+        }
+      } catch (imageError) {
+        try {
+          await removeImagesFromStorage(uploadedImages.map((image) => image.path));
+        } catch (cleanupError) {
+          console.error("Error cleaning storage after failed submit:", cleanupError);
+        }
+
+        try {
+          await deleteProduct(created.id);
+        } catch (deleteError) {
+          console.error("Error deleting product after failed submit:", deleteError);
+        }
+
+        throw imageError;
+      }
+
+      toast.success("Producto creado");
+      setForm(emptyForm);
+      clearDraftImages();
+      setEditing(null);
+      setShowForm(false);
       invalidate();
-    } catch {
+    } catch (error) {
+      console.error("Error saving product:", error);
       toast.error("Error al guardar el producto");
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -151,6 +211,7 @@ const AdminDashboard = () => {
       categoryId: product.categoryId,
       image: product.image,
     });
+    clearDraftImages();
     setEditing(product.id);
     setShowForm(true);
   };
@@ -269,7 +330,7 @@ const AdminDashboard = () => {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <h1 className="font-heading text-2xl font-bold text-foreground">Productos</h1>
             <Button
-              onClick={() => { setForm(emptyForm); setEditing(null); setShowForm(!showForm); }}
+              onClick={() => { setForm(emptyForm); clearDraftImages(); setEditing(null); setShowForm(!showForm); }}
               className="gap-1.5"
             >
               <Plus className="h-4 w-4" />Nuevo producto
@@ -310,20 +371,23 @@ const AdminDashboard = () => {
                 <Label htmlFor="description">Descripción</Label>
                 <Textarea id="description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} required />
               </div>
-              {/* Image uploader — only when editing (product already saved) */}
-              {editing && (
-                <ProductImageUploader
-                  productId={editing}
-                  onImagesChanged={() => {
-                    invalidate();
-                    invalidateImages(editing);
-                  }}
-                />
-              )}
+              <ProductImageUploader
+                draftImages={draftImages}
+                onChange={setDraftImages}
+              />
 
               <div className="flex gap-2">
-                <Button type="submit">{editing ? "Guardar cambios" : "Crear producto"}</Button>
-                <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditing(null); setForm(emptyForm); }}>Cancelar</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {editing ? "Guardar cambios" : "Crear producto"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSubmitting}
+                  onClick={() => { setShowForm(false); setEditing(null); setForm(emptyForm); clearDraftImages(); }}
+                >
+                  Cancelar
+                </Button>
               </div>
             </form>
           )}
