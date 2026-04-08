@@ -194,9 +194,29 @@ const AdminDashboard = () => {
       setEditing(null);
       setShowForm(false);
       invalidate();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving product:", error);
-      toast.error("Error al guardar el producto");
+    
+      // Error de slug duplicado (Postgres)
+      if (error?.code === "23505") {
+        toast.error("Ya existe un producto con ese slug");
+        return;
+      }
+    
+      // Error de red / fetch
+      if (error?.message?.includes("Failed to fetch")) {
+        toast.error("Error de conexión. Verificá tu internet");
+        return;
+      }
+    
+      // Error en imágenes (opcional pero útil)
+      if (error instanceof Error) {
+        toast.error("Error al subir imágenes o guardar el producto");
+        return;
+      }
+    
+      // fallback
+      toast.error("Error inesperado al guardar el producto");
     } finally {
       setIsSubmitting(false);
     }
