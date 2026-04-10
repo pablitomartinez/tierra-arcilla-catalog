@@ -9,7 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { brand } from "@/config/brand";
 import { Product, Category } from "@/types/product";
-import { DraftImage } from "@/types/productImage";
+import {
+  DraftImage,
+  EditableImage,
+  ExistingEditableImage,
+} from "@/types/productImage";
 import {
   createProduct,
   updateProduct,
@@ -17,6 +21,7 @@ import {
   toggleProductActive,
 } from "@/services/products";
 import {
+  getProductImages,
   insertProductImages,
   removeImagesFromStorage,
   uploadImageToProductStorage,
@@ -70,6 +75,8 @@ const AdminDashboard = () => {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<ProductFormData>(emptyForm);
   const [draftImages, setDraftImages] = useState<DraftImage[]>([]);
+  const [editableImages, setEditableImages] = useState<EditableImage[]>([]);
+  const [originalImages, setOriginalImages] = useState<ExistingEditableImage[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Category form
@@ -80,6 +87,8 @@ const AdminDashboard = () => {
     if (!authLoading && (!user || !isAdmin)) {
       navigate("/admin/login");
     }
+    console.log("original", originalImages);
+    console.log("editable", editableImages);
   }, [user, isAdmin, authLoading, navigate]);
 
   const invalidate = () => {
@@ -92,6 +101,16 @@ const AdminDashboard = () => {
       URL.revokeObjectURL(image.previewUrl);
     }
     setDraftImages([]);
+  };
+
+  const clearEditableImages = () => {
+    for (const image of editableImages) {
+      if (image.kind === "new") {
+        URL.revokeObjectURL(image.previewUrl);
+      }
+    }
+    setEditableImages([]);
+    setOriginalImages([]);
   };
 
   const handleLogout = async () => {
@@ -135,6 +154,7 @@ const AdminDashboard = () => {
         toast.success("Producto actualizado");
         setForm(emptyForm);
         clearDraftImages();
+        clearEditableImages();
         setEditing(null);
         setShowForm(false);
         invalidate();
@@ -191,37 +211,34 @@ const AdminDashboard = () => {
       toast.success("Producto creado");
       setForm(emptyForm);
       clearDraftImages();
+      clearEditableImages();
       setEditing(null);
       setShowForm(false);
       invalidate();
     } catch (error: any) {
       console.error("Error saving product:", error);
-    
-      // Error de slug duplicado (Postgres)
+
       if (error?.code === "23505") {
         toast.error("Ya existe un producto con ese slug");
         return;
       }
-    
-      // Error de red / fetch
+
       if (error?.message?.includes("Failed to fetch")) {
         toast.error("Error de conexión. Verificá tu internet");
         return;
       }
-    
-      // Error en imágenes (opcional pero útil)
+
       if (error instanceof Error) {
         toast.error("Error al subir imágenes o guardar el producto");
         return;
       }
-    
-      // fallback
+
       toast.error("Error inesperado al guardar el producto");
     } finally {
       setIsSubmitting(false);
     }
   };
-  
+
   const handleEdit = (product: Product) => {
     setForm({
       title: product.title,
@@ -232,8 +249,27 @@ const AdminDashboard = () => {
       image: product.image,
     });
     clearDraftImages();
+    clearEditableImages();
     setEditing(product.id);
     setShowForm(true);
+
+    void (async () => {
+      try {
+        const productImages = await getProductImages(product.id);
+        const existingImages: ExistingEditableImage[] = productImages.map((image) => ({
+          kind: "existing",
+          id: image.id,
+          url: image.url,
+          position: image.position,
+        }));
+
+        setOriginalImages(existingImages);
+        setEditableImages(existingImages);
+      } catch (error) {
+        console.error("Error loading product images:", error);
+        toast.error("No se pudieron cargar las imágenes del producto");
+      }
+    })();
   };
 
   const handleDelete = async (id: string) => {
@@ -308,7 +344,6 @@ const AdminDashboard = () => {
       </header>
 
       <div className="container py-6 md:py-10 space-y-8">
-        {/* Categories Section */}
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <h2 className="font-heading text-xl font-bold text-foreground">Categorías</h2>
@@ -326,7 +361,13 @@ const AdminDashboard = () => {
             <form onSubmit={handleCreateCategory} className="bg-card border rounded-lg p-4 flex gap-3 items-end">
               <div className="flex-1 space-y-2">
                 <Label htmlFor="cat-name">Nombre</Label>
-                <Input id="cat-name" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} required placeholder="Ej: Cuencos" />
+                <Input
+                  id="cat-name"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  required
+                  placeholder="Ej: Cuencos"
+                />
               </div>
               <Button type="submit" size="sm">Crear</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setShowCategoryForm(false)}>Cancelar</Button>
@@ -345,12 +386,17 @@ const AdminDashboard = () => {
           </div>
         </section>
 
-        {/* Products Section */}
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <h1 className="font-heading text-2xl font-bold text-foreground">Productos</h1>
             <Button
-              onClick={() => { setForm(emptyForm); clearDraftImages(); setEditing(null); setShowForm(!showForm); }}
+              onClick={() => {
+                setForm(emptyForm);
+                clearDraftImages();
+                clearEditableImages();
+                setEditing(null);
+                setShowForm(!showForm);
+              }}
               className="gap-1.5"
             >
               <Plus className="h-4 w-4" />Nuevo producto
@@ -391,10 +437,17 @@ const AdminDashboard = () => {
                 <Label htmlFor="description">Descripción</Label>
                 <Textarea id="description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} required />
               </div>
-              <ProductImageUploader
-                draftImages={draftImages}
-                onChange={setDraftImages}
-              />
+              {editing ? (
+                <ProductImageUploader
+                  editableImages={editableImages}
+                  onChange={setEditableImages}
+                />
+              ) : (
+                <ProductImageUploader
+                  draftImages={draftImages}
+                  onChange={setDraftImages}
+                />
+              )}
 
               <div className="flex gap-2">
                 <Button type="submit" disabled={isSubmitting}>
@@ -404,7 +457,13 @@ const AdminDashboard = () => {
                   type="button"
                   variant="outline"
                   disabled={isSubmitting}
-                  onClick={() => { setShowForm(false); setEditing(null); setForm(emptyForm); clearDraftImages(); }}
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditing(null);
+                    setForm(emptyForm);
+                    clearDraftImages();
+                    clearEditableImages();
+                  }}
                 >
                   Cancelar
                 </Button>

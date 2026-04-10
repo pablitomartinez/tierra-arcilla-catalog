@@ -1,17 +1,21 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Trash2, Star } from "lucide-react";
-import { DraftImage } from "@/types/productImage";
+import { DraftImage, EditableImage } from "@/types/productImage";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  image: DraftImage;
+  image: DraftImage | EditableImage;
   index: number;
-  onRemove: (img: DraftImage) => void;
+  onRemove: (img: DraftImage | EditableImage) => void;
 }
 
 export default function ProductImageItem({ image, index, onRemove }: Props) {
-  const id = image.id;
+  const id = "kind" in image
+    ? image.kind === "existing"
+      ? `existing-${image.id}`
+      : `new-${image.localId}`
+    : image.id;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
 
@@ -21,6 +25,12 @@ export default function ProductImageItem({ image, index, onRemove }: Props) {
   };
 
   const isCover = index === 0;
+  const src = "kind" in image
+    ? image.kind === "existing"
+      ? image.url
+      : image.previewUrl
+    : image.previewUrl;
+  const isNew = "kind" in image ? image.kind === "new" : true;
 
   return (
     <div
@@ -30,10 +40,10 @@ export default function ProductImageItem({ image, index, onRemove }: Props) {
         "group relative aspect-square rounded-lg border-2 overflow-hidden bg-muted",
         isDragging && "opacity-50 z-50",
         isCover ? "border-primary" : "border-border",
-        "ring-2 ring-accent/40",
+        isNew && "ring-2 ring-accent/40",
       )}
     >
-      <img src={image.previewUrl} alt="" className="h-full w-full object-cover" />
+      <img src={src} alt="" className="h-full w-full object-cover" />
 
       {/* Cover badge */}
       {isCover && (
@@ -42,9 +52,11 @@ export default function ProductImageItem({ image, index, onRemove }: Props) {
         </span>
       )}
 
-      <span className="absolute top-1.5 right-1.5 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-accent-foreground">
-        Nueva
-      </span>
+      {isNew && (
+        <span className="absolute top-1.5 right-1.5 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-accent-foreground">
+          Nueva
+        </span>
+      )}
 
       {/* Overlay actions */}
       <div className="absolute inset-0 flex items-end justify-between bg-gradient-to-t from-black/50 to-transparent opacity-0 transition-opacity group-hover:opacity-100">

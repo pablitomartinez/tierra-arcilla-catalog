@@ -11,3 +11,19 @@ export interface DraftImage {
   file: File;
   previewUrl: string;
 }
+
+export interface ExistingEditableImage {
+  kind: "existing";
+  id: string;
+  url: string;
+  position: number;
+}
+
+export interface NewEditableImage {
+  kind: "new";
+  localId: string;
+  file: File;
+  previewUrl: string;
+}
+
+export type EditableImage = ExistingEditableImage | NewEditableImage;

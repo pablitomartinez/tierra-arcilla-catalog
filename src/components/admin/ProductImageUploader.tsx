@@ -14,24 +14,55 @@ import {
 } from "@dnd-kit/sortable";
 import { ImagePlus } from "lucide-react";
 import ProductImageItem from "./ProductImageItem";
-import { DraftImage } from "@/types/productImage";
+import { DraftImage, EditableImage } from "@/types/productImage";
 
-interface Props {
+interface DraftProps {
   draftImages: DraftImage[];
   onChange: (images: DraftImage[]) => void;
 }
 
-export default function ProductImageUploader({ draftImages, onChange }: Props) {
-  const latestImagesRef = useRef(draftImages);
+interface EditableProps {
+  editableImages: EditableImage[];
+  onChange: (images: EditableImage[]) => void;
+}
+
+type Props = DraftProps | EditableProps;
+
+function isEditableProps(props: Props): props is EditableProps {
+  return "editableImages" in props;
+}
+
+function getImageId(image: DraftImage | EditableImage): string {
+  if ("kind" in image) {
+    return image.kind === "existing" ? `existing-${image.id}` : `new-${image.localId}`;
+  }
+
+  return image.id;
+}
+
+function getPreviewUrl(image: DraftImage | EditableImage): string | null {
+  if ("kind" in image) {
+    return image.kind === "new" ? image.previewUrl : null;
+  }
+
+  return image.previewUrl;
+}
+
+export default function ProductImageUploader(props: Props) {
+  const images = isEditableProps(props) ? props.editableImages : props.draftImages;
+  const latestImagesRef = useRef(images);
 
   useEffect(() => {
-    latestImagesRef.current = draftImages;
-  }, [draftImages]);
+    latestImagesRef.current = images;
+  }, [images]);
 
   useEffect(() => {
     return () => {
       for (const image of latestImagesRef.current) {
-        URL.revokeObjectURL(image.previewUrl);
+        const previewUrl = getPreviewUrl(image);
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+        }
       }
     };
   }, []);
@@ -45,16 +76,28 @@ export default function ProductImageUploader({ draftImages, onChange }: Props) {
       const files = Array.from(e.target.files ?? []);
       if (files.length === 0) return;
 
-      const newImages: DraftImage[] = files.map((file) => ({
-        id: crypto.randomUUID(),
-        file,
-        previewUrl: URL.createObjectURL(file),
-      }));
+      if (isEditableProps(props)) {
+        const newImages: EditableImage[] = files.map((file) => ({
+          kind: "new",
+          localId: crypto.randomUUID(),
+          file,
+          previewUrl: URL.createObjectURL(file),
+        }));
 
-      onChange([...draftImages, ...newImages]);
+        props.onChange([...props.editableImages, ...newImages]);
+      } else {
+        const newImages: DraftImage[] = files.map((file) => ({
+          id: crypto.randomUUID(),
+          file,
+          previewUrl: URL.createObjectURL(file),
+        }));
+
+        props.onChange([...props.draftImages, ...newImages]);
+      }
+
       e.target.value = "";
     },
-    [draftImages, onChange],
+    [props],
   );
 
   const handleDragEnd = useCallback(
@@ -62,28 +105,60 @@ export default function ProductImageUploader({ draftImages, onChange }: Props) {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
-      const oldIndex = draftImages.findIndex((image) => image.id === active.id);
-      const newIndex = draftImages.findIndex((image) => image.id === over.id);
+      const oldIndex = images.findIndex((image) => getImageId(image) === active.id);
+      const newIndex = images.findIndex((image) => getImageId(image) === over.id);
       if (oldIndex === -1 || newIndex === -1) return;
 
-      onChange(arrayMove(draftImages, oldIndex, newIndex));
+      if (isEditableProps(props)) {
+        props.onChange(arrayMove(props.editableImages, oldIndex, newIndex));
+      } else {
+        props.onChange(arrayMove(props.draftImages, oldIndex, newIndex));
+      }
     },
-    [draftImages, onChange],
+    [images, props],
   );
 
   const handleRemove = useCallback(
-    (imageToRemove: DraftImage) => {
-      URL.revokeObjectURL(imageToRemove.previewUrl);
-      onChange(draftImages.filter((image) => image.id !== imageToRemove.id));
+    (imageToRemove: DraftImage | EditableImage) => {
+      console.log("REMOVING IMAGE", imageToRemove);
+  
+      const previewUrl = getPreviewUrl(imageToRemove);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+  
+      if (isEditableProps(props)) {
+        console.log("BEFORE editable", props.editableImages);
+  
+        const updated = props.editableImages.filter(
+          (image) => getImageId(image) !== getImageId(imageToRemove)
+        );
+  
+        console.log("AFTER editable", updated);
+  
+        props.onChange(updated);
+      } else {
+        console.log("BEFORE draft", props.draftImages);
+  
+        const draftImage = imageToRemove as DraftImage;
+  
+        const updated = props.draftImages.filter(
+          (image) => image.id !== draftImage.id
+        );
+  
+        console.log("AFTER draft", updated);
+  
+        props.onChange(updated);
+      }
     },
-    [draftImages, onChange],
+    [props]
   );
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">
-          Imágenes del producto ({draftImages.length})
+          Imágenes del producto ({images.length})
         </h3>
         <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground">
           <ImagePlus className="h-4 w-4" />
@@ -98,7 +173,7 @@ export default function ProductImageUploader({ draftImages, onChange }: Props) {
         </label>
       </div>
 
-      {draftImages.length === 0 ? (
+      {images.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border py-10 text-center">
           <ImagePlus className="mb-2 h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
@@ -112,13 +187,13 @@ export default function ProductImageUploader({ draftImages, onChange }: Props) {
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={draftImages.map((image) => image.id)}
+            items={images.map(getImageId)}
             strategy={rectSortingStrategy}
           >
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
-              {draftImages.map((image, index) => (
+              {images.map((image, index) => (
                 <ProductImageItem
-                  key={image.id}
+                  key={getImageId(image)}
                   image={image}
                   index={index}
                   onRemove={handleRemove}
