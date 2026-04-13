@@ -43,9 +43,13 @@ export async function getProductImages(productId: string): Promise<ProductImage[
 export async function uploadImageToProductStorage(
   productId: string,
   file: File,
-  index: number,
+  index: number, // lo dejamos pero ya no se usa
 ): Promise<UploadedProductImage> {
-  const path = `products/${productId}/${index}.jpg`;
+
+  const fileExt = file.name.split(".").pop() || "jpg";
+  const fileName = `${crypto.randomUUID()}.${fileExt}`;
+
+  const path = `products/${productId}/${fileName}`;
 
   const { error: uploadError } = await supabase.storage
     .from("products")
@@ -53,9 +57,13 @@ export async function uploadImageToProductStorage(
       upsert: false,
       contentType: file.type || "image/jpeg",
     });
+
   if (uploadError) throw uploadError;
 
-  const { data } = supabase.storage.from("products").getPublicUrl(path);
+  const { data } = supabase.storage
+    .from("products")
+    .getPublicUrl(path);
+
   return {
     path,
     publicUrl: data.publicUrl,
