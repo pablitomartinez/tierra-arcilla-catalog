@@ -8,26 +8,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { brand } from "@/config/brand";
-import { Product, Category } from "@/types/product";
+import { Product } from "@/types/product";
 import {
   DraftImage,
   EditableImage,
   ExistingEditableImage,
 } from "@/types/productImage";
 import {
-  createProduct,
-  updateProduct,
+  createProductWithImages,
+  updateProductWithImages,
+} from "@/services/productService";
+import {
   deleteProduct,
   toggleProductActive,
 } from "@/services/products";
-import {
-  deleteProductImage,
-  getProductImages,
-  insertProductImages,
-  removeImagesFromStorage,
-  updateImagePositions,
-  uploadImageToProductStorage,
-} from "@/services/productImages";
+import { getProductImages } from "@/services/productImages";
 import { createCategory, deleteCategory } from "@/services/categories";
 import { useAllProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
@@ -36,7 +31,6 @@ import { categoryKeys } from "@/hooks/useCategories";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-
 import ProductImageUploader from "@/components/admin/ProductImageUploader";
 
 function slugify(text: string) {
@@ -81,7 +75,6 @@ const AdminDashboard = () => {
   const [originalImages, setOriginalImages] = useState<ExistingEditableImage[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Category form
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
 
@@ -89,9 +82,7 @@ const AdminDashboard = () => {
     if (!authLoading && (!user || !isAdmin)) {
       navigate("/admin/login");
     }
-    console.log("original", originalImages);
-    console.log("editable", editableImages);
-  }, [originalImages, editableImages, user, isAdmin, authLoading, navigate]);
+  }, [user, isAdmin, authLoading, navigate]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: productKeys.all });
@@ -115,23 +106,26 @@ const AdminDashboard = () => {
     setOriginalImages([]);
   };
 
+  const resetFormState = () => {
+    setForm(emptyForm);
+    clearDraftImages();
+    clearEditableImages();
+    setEditing(null);
+    setShowForm(false);
+  };
+
   const handleLogout = async () => {
     await signOut();
     navigate("/admin/login");
   };
 
   const handleTitleChange = (title: string) => {
-    setForm((f) => ({ ...f, title, slug: editing ? f.slug : slugify(title) }));
+    setForm((current) => ({
+      ...current,
+      title,
+      slug: editing ? current.slug : slugify(title),
+    }));
   };
-  // LOGGER
-  const logStep = (step: string, status: "OK" | "ERROR", detail?: any) => {
-    if (status === "OK") {
-      console.log(`✅ ${step}`);
-    } else {
-      console.error(`❌ ${step}`, detail);
-    }
-  };
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,241 +147,50 @@ const AdminDashboard = () => {
 
     try {
       if (editing) {
-        console.log("EDIT MODE ACTIVE");
-
-        let hasError = false;
-
-        const newImages = editableImages.filter((img) => img.kind === "new");
-
-        const deletedImages = originalImages.filter(
-          (orig) =>
-            !editableImages.some(
-              (e) => e.kind === "existing" && e.id === orig.id
-            )
-        );
-
-        // =========================
-        // 1. UPLOAD
-        // =========================
-        let uploadedImages: { path: string; url: string; localId: string }[] = [];
-
-        try {
-          for (const image of newImages) {
-            const uploaded = await uploadImageToProductStorage(
-              editing,
-              image.file,
-              0
-            );
-
-            uploadedImages.push({
-              path: uploaded.path,
-              url: uploaded.publicUrl,
-              localId: image.localId, // 🔥 CLAVE
-            });
-          }
-
-          logStep("UPLOAD", "OK");
-        } catch (e) {
-          logStep("UPLOAD", "ERROR", e);
-          hasError = true;
-        }
-
-        // =========================
-        // 2. INSERT
-        // =========================
-        let insertedImages: { id: string; url: string; localId: string }[] = [];
-
-        try {
-          if (uploadedImages.length > 0) {
-            const inserted = await insertProductImages(
-              uploadedImages.map((img) => ({
-                product_id: editing,
-                url: img.url,
-                position: 0,
-              }))
-            );
-
-            insertedImages = inserted.map((img, index) => ({
-              id: img.id,
-              url: img.url,
-              localId: uploadedImages[index].localId, // 🔥 relación directa
-            }));
-          }
-
-          logStep("INSERT DB", "OK");
-        } catch (e) {
-          logStep("INSERT DB", "ERROR", e);
-          hasError = true;
-        }
-
-        // =========================
-        // 3. DELETE
-        // =========================
-        try {
-          if (deletedImages.length > 0) {
-            for (const img of deletedImages) {
-              await deleteProductImage({
-                id: img.id,
-                productId: editing,
-                url: img.url,
-                position: img.position,
-                createdAt: "",
-              });
-            }
-          }
-
-          logStep("DELETE", "OK");
-        } catch (e) {
-          logStep("DELETE", "ERROR", e);
-          hasError = true;
-        }
-
-        // =========================
-        // 4. BUILD FINAL STATE (ROBUSTO)
-        // =========================
-        let finalImages: { id: string; url: string }[] = [];
-
-        try {
-          finalImages = editableImages.map((img) => {
-            if (img.kind === "existing") {
-              return {
-                id: img.id,
-                url: img.url,
-              };
-            }
-
-            const found = insertedImages.find(
-              (i) => i.localId === img.localId
-            );
-
-            if (!found) {
-              throw new Error("Image mapping failed");
-            }
-
-            return found;
-          });
-
-          logStep("BUILD FINAL STATE", "OK");
-        } catch (e) {
-          logStep("BUILD FINAL STATE", "ERROR", e);
-          hasError = true;
-        }
-
-        // =========================
-        // 5. REORDER (SEGURO)
-        // =========================
-        try {
-          const reordered = finalImages
-            .filter((img) => !!img?.id)
-            .map((img, index) => ({
-              id: img.id,
-              position: index,
-            }));
-
-          if (reordered.length > 0) {
-            await updateImagePositions(reordered);
-          }
-
-          logStep("REORDER", "OK");
-        } catch (e) {
-          logStep("REORDER", "ERROR", e);
-          hasError = true;
-        }
-
-        // =========================
-        // 6. UPDATE PRODUCT
-        // =========================
-        try {
-          const coverImage =
-            finalImages.length > 0 ? finalImages[0].url : "/placeholder.svg";
-
-          await updateProduct(editing, {
+        await updateProductWithImages({
+          productId: editing,
+          productData: {
             title: form.title,
             slug: form.slug,
             description: form.description,
             price,
             categoryId: form.categoryId,
-            image: coverImage,
-          });
+            image: form.image,
+          },
+          editableImages,
+          originalImages,
+        });
 
-          logStep("UPDATE PRODUCT", "OK");
-        } catch (e) {
-          logStep("UPDATE PRODUCT", "ERROR", e);
-          hasError = true;
-        }
 
-        // =========================
-        // FINAL RESULT
-        // =========================
-        if (hasError) {
-          toast.error("Guardado parcial (revisar consola)");
-        } else {
-          toast.success("Producto actualizado correctamente");
-        }
+        toast.success("Producto actualizado correctamente");
 
-        setForm(emptyForm);
-        clearDraftImages();
-        clearEditableImages();
-        setEditing(null);
-        setShowForm(false);
+
+        resetFormState();
         invalidate();
-
         return;
       }
 
-      const created = await createProduct({
-        title: form.title,
-        slug: form.slug,
-        description: form.description,
-        price,
-        categoryId: form.categoryId,
-        image: form.image || "/placeholder.svg",
-        active: true,
-      });
+      const result = await createProductWithImages(
+        {
+          title: form.title,
+          slug: form.slug,
+          description: form.description,
+          price,
+          categoryId: form.categoryId,
+          image: form.image || "/placeholder.svg",
+          active: true,
+        },
+        draftImages
+      );
 
-      const uploadedImages: { path: string; url: string; position: number }[] = [];
-
-      try {
-        if (draftImages.length > 0) {
-          for (const [index, draftImage] of draftImages.entries()) {
-            const uploaded = await uploadImageToProductStorage(created.id, draftImage.file, index);
-            uploadedImages.push({
-              path: uploaded.path,
-              url: uploaded.publicUrl,
-              position: index,
-            });
-          }
-
-          await insertProductImages(
-            uploadedImages.map((image) => ({
-              product_id: created.id,
-              url: image.url,
-              position: image.position,
-            })),
-          );
-        }
-      } catch (imageError) {
-        try {
-          await removeImagesFromStorage(uploadedImages.map((image) => image.path));
-        } catch (cleanupError) {
-          console.error("Error cleaning storage after failed submit:", cleanupError);
-        }
-
-        try {
-          await deleteProduct(created.id);
-        } catch (deleteError) {
-          console.error("Error deleting product after failed submit:", deleteError);
-        }
-
-        throw imageError;
+      if (result.imagesFailed) {
+        toast.error("Producto creado, pero fallaron las imágenes");
+      } else {
+        toast.success("Producto creado correctamente");
       }
 
-      toast.success("Producto creado");
-      setForm(emptyForm);
-      clearDraftImages();
-      clearEditableImages();
-      setEditing(null);
-      setShowForm(false);
+      // toast.success("Producto creado");
+      resetFormState();
       invalidate();
     } catch (error: any) {
       console.error("Error saving product:", error);
@@ -589,15 +392,15 @@ const AdminDashboard = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="slug">Slug</Label>
-                  <Input id="slug" value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} required />
+                  <Input id="slug" value={form.slug} onChange={(e) => setForm((current) => ({ ...current, slug: e.target.value }))} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="price">Precio ($)</Label>
-                  <Input id="price" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} required />
+                  <Input id="price" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm((current) => ({ ...current, price: e.target.value }))} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="category">Categoría</Label>
-                  <Select value={form.categoryId} onValueChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}>
+                  <Select value={form.categoryId} onValueChange={(value) => setForm((current) => ({ ...current, categoryId: value }))}>
                     <SelectTrigger><SelectValue placeholder="Seleccionar categoría" /></SelectTrigger>
                     <SelectContent>
                       {categories.map((cat) => (
@@ -609,7 +412,7 @@ const AdminDashboard = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Descripción</Label>
-                <Textarea id="description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} required />
+                <Textarea id="description" value={form.description} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} rows={3} required />
               </div>
               {editing ? (
                 <ProductImageUploader
