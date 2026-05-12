@@ -269,19 +269,29 @@ export async function createProductWithImages(
     try {
       const uploadedImages = await uploadDraftImages(created.id, draftImages);
 
-      await insertProductImages(
+      const insertedImages = await insertProductImages(
         uploadedImages.map((image) => ({
           product_id: created.id,
           url: image.url,
           position: image.position,
         })),
       );
+
+      // 🔥 Normalización final igual que UPDATE
+      await reorderImages(insertedImages);
+
+      await updateProductCover(
+        created.id,
+        productData,
+        insertedImages,
+      );
     } catch (error) {
       console.error("Image upload failed, product still created:", error);
+
       imagesFailed = true;
 
-      // ⚠️ NO borramos el producto
-      // ⚠️ NO hacemos rollback
+      // ⚠️ create sigue siendo tolerante a fallos
+      // ⚠️ NO rollback
     }
   }
 
