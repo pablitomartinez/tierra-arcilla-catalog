@@ -13,6 +13,7 @@ import heroImage from "@/assets/hero-ceramic.jpg";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HeroSection } from "@/components/HeroSection";
+import FeaturedProductsSection from "@/components/FeaturedProductsSection";
 
 const Index = () => {
   const { data: products = [], isLoading } = useActiveProducts();
@@ -87,7 +88,7 @@ const Index = () => {
       <HeroSection />
 
       {/* FEATURED PRODUCTS */}
-      <section id="productos" className={`${ui.container} ${ui.section.md} scroll-mt-40`}>
+      {/* <section id="productos" className={`${ui.container} ${ui.section.md} scroll-mt-40`}>
         <div className="mb-8 space-y-3 text-center md:mb-10">
           <h2
             className={`
@@ -169,8 +170,8 @@ const Index = () => {
             </Link>
           </Button>
         </div>
-      </section>
-
+      </section> */}
+      <FeaturedProductsSection featured={featured} isLoading={isLoading} />
       {/* DESTACADOS */}
       <section id="destacados" className={`bg-secondary/40 ${ui.section.md} scroll-mt-40`}>
         <div className={`${ui.container}`}>
