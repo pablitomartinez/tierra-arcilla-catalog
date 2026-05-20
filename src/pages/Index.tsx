@@ -12,6 +12,7 @@ import heroImage from "@/assets/hero-ceramic.jpg";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { HeroSection } from "@/components/HeroSection";
 
 const Index = () => {
   const { data: products = [], isLoading } = useActiveProducts();
@@ -21,7 +22,7 @@ const Index = () => {
   return (
     <PublicLayout>
       {/* HERO */}
-      <section id="" className="relative overflow-hidden">
+      {/* <section id="" className="relative overflow-hidden">
         <div className="absolute inset-0">
           <img
             src={heroImage}
@@ -81,7 +82,9 @@ const Index = () => {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
+
+      <HeroSection />
 
       {/* FEATURED PRODUCTS */}
       <section id="productos" className={`${ui.container} ${ui.section.md} scroll-mt-40`}>
@@ -393,48 +396,30 @@ const Index = () => {
       </section>
       {/* CONTACTO  */}
       <section id="contacto" className={`bg-secondary ${ui.section.md} scroll-mt-40`}>
-        <div
-          className={`
-            ${ui.container}
-            max-w-3xl
-            text-center
-          `}
-        >
-          <span
-            className="
-              mb-4
-              inline-block
-              rounded-full
-              bg-background
-              px-4
-              py-1
-              text-sm
-              font-medium
-              text-muted-foreground
-            "
-          >
+        <div className={`${ui.container} max-w-3xl text-center`}>
+          <span className=" mb-4 inline-block rounded-full bg-background px-4 py-1 text-sm font-medium text-muted-foreground">
             Contacto
           </span>
 
           <h2
             className={`
-              ${ui.typography.sectionTitle}
-              font-heading
-              font-bold
-              text-secondary-foreground
-            `}
+        ${ui.typography.sectionTitle}
+        font-heading
+        font-bold
+        text-secondary-foreground
+      `}
           >
             Hablemos sobre tu próxima pieza
           </h2>
 
           <p
             className={`
-              ${ui.typography.body}
-              mx-auto
-              mt-4
-              max-w-2xl
-              text-secondary-foreground/80
-            `}
+        ${ui.typography.body}
+        mx-auto
+        mt-4
+        max-w-2xl
+        text-secondary-foreground/80
+      `}
           >
             Si querés hacer un pedido, consultar disponibilidad o conocer más
             sobre nuestro trabajo artesanal, podés escribirnos y te responderemos
@@ -446,15 +431,19 @@ const Index = () => {
               asChild
               size="lg"
               className={`
-                ${ui.radius.pill}
-                px-6
-                font-semibold
-              `}
+          ${ui.radius.pill}
+          px-6
+          font-semibold
+        `}
             >
-              <Link to="/contacto">
-                Ir a contacto
+              <a
+                href={`https://wa.me/5491112345678?text=${encodeURIComponent("¡Hola, Tierra Arcilla! Vi su página web y me gustaría hacerles una consulta.")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Ir a WhatsApp
                 <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
+              </a>
             </Button>
           </div>
         </div>

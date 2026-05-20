@@ -1,51 +1,46 @@
-import { Search, ShoppingBag } from "lucide-react";
 import { Link } from "react-router-dom";
 import { brand } from "@/config/brand";
-// import { Category } from "@/types/product";
 import { SearchBox } from "./SearchBox";
 import { MobileMenuSheet } from "./MobileMenuSheet";
 
-// interface MainHeaderProps {
-//   categories: Category[];
-// }
-
 export function MainHeader() {
+  const whatsappUrl = "https://wa.me/5493886526325?text=Hola!%20Me%20interesa%20hacer%20una%20consulta%20sobre%20las%20piezas%20de%20Tierra%20Arcilla.";
+
   return (
     <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
       <div className="container flex h-16 items-center gap-1 md:h-20">
-        <MobileMenuSheet  />
+        
+        {/* Menú hamburguesa (Se mantiene en móviles para navegar) */}
+        <MobileMenuSheet />
 
+        {/* Logo: En móvil ocupa el espacio restante de forma limpia */}
         <Link to="/" className="min-w-0 flex-1 font-heading text-xl font-bold tracking-tight text-foreground md:flex-none md:text-2xl">
           {brand.name}
         </Link>
 
+        {/* Barra de búsqueda (Oculta en móvil, visible en escritorio) */}
         <div className="hidden flex-1 justify-center px-6 md:flex">
           <div className="w-full max-w-xl">
             <SearchBox />
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-1 md:gap-2">
-          <button className="inline-flex h-10 w-10 items-center justify-center rounded-md text-foreground transition-colors hover:bg-secondary md:hidden" type="button">
-            <Search className="h-5 w-5" />
-            <span className="sr-only">Buscar</span>
-          </button>
+        {/* Contenedor de la derecha */}
+        <div className="flex items-center justify-end gap-2">
+          
+          {/* 🔥 BOTÓN CONSULTAR OPTIMIZADO:
+            Cambiamos 'inline-flex' por 'hidden md:inline-flex'.
+            Ahora queda 100% oculto en móviles y reaparece en pantallas grandes.
+          */}
+          <a 
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden h-10 items-center justify-center rounded-full bg-clay-dark px-5 text-sm font-semibold text-white transition-colors hover:bg-clay-dark/90 md:inline-flex"
+          >
+            Consultar por WhatsApp
+          </a>
 
-          {/* <button className="hidden h-10 items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground lg:inline-flex" type="button">
-            <HelpCircle className="h-4 w-4" />
-            Ayuda
-          </button>
-          <button className="hidden h-10 items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground md:inline-flex" type="button">
-            <User className="h-4 w-4" />
-            Cuenta
-          </button> */}
-          <button className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-foreground transition-colors hover:bg-secondary" type="button">
-            <ShoppingBag className="h-5 w-5" />
-            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
-              0
-            </span>
-            <span className="sr-only">Carrito</span>
-          </button>
         </div>
       </div>
     </div>
