@@ -6,9 +6,9 @@ export function TopBar() {
       <div className="container flex h-9 items-center justify-between text-xs font-medium">
         <p>Envíos y consultas personalizadas para cada pieza</p>
         <div className="flex items-center gap-5">
-          <a href={brand.social.instagram} target="_blank" rel="noopener noreferrer" className="hover:text-primary-foreground/80">
+          {/* <a href={brand.social.instagram} target="_blank" rel="noopener noreferrer" className="hover:text-primary-foreground/80">
             Instagram
-          </a>
+          </a> */}
           <span>Atención por WhatsApp</span>
         </div>
       </div>

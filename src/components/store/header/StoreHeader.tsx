@@ -1,16 +1,22 @@
-import { useCategories } from "@/hooks/useCategories";
-import { CategoryNav } from "./CategoryNav";
+import { useLocation } from "react-router-dom";
+
 import { MainHeader } from "./MainHeader";
+import { StoreNav } from "./StoreNav";
 import { TopBar } from "./TopBar";
 
 export function StoreHeader() {
-  const { data: categories = [] } = useCategories();
+  const location = useLocation();
+
+  const showStoreNav =
+    location.pathname === "/" ||
+    location.pathname === "/productos";
 
   return (
-    <header className="sticky top-0 z-50">
+    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <TopBar />
-      <MainHeader categories={categories} />
-      <CategoryNav categories={categories} />
+      <MainHeader />
+
+      {showStoreNav && <StoreNav />}
     </header>
   );
 }

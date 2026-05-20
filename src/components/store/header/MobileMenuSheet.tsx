@@ -1,7 +1,7 @@
-import { Link } from "react-router-dom";
+// import { Link } from "react-router-dom";
 import { HelpCircle, Menu, Search, ShoppingBag, User } from "lucide-react";
 import { brand } from "@/config/brand";
-import { Category } from "@/types/product";
+// import { Category } from "@/types/product";
 import {
   Sheet,
   SheetContent,
@@ -12,11 +12,11 @@ import {
 } from "@/components/ui/sheet";
 import { SearchBox } from "./SearchBox";
 
-interface MobileMenuSheetProps {
-  categories: Category[];
-}
+// interface MobileMenuSheetProps {
+//   categories: Category[];
+// }
 
-export function MobileMenuSheet({ categories }: MobileMenuSheetProps) {
+export function MobileMenuSheet() {
   return (
     <Sheet>
       <SheetTrigger className="inline-flex h-10 w-10 items-center justify-center rounded-md text-foreground transition-colors hover:bg-secondary md:hidden">
@@ -32,19 +32,65 @@ export function MobileMenuSheet({ categories }: MobileMenuSheetProps) {
         <div className="space-y-6 overflow-y-auto px-5 py-5">
           <SearchBox compact />
 
-          <nav className="space-y-1">
+          {/* <nav className="space-y-1">
             <Link className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary" to="/">
               Inicio
             </Link>
             <Link className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary" to="/productos">
               Productos
             </Link>
+          </nav> */}
+          {/* NAVEGACION PRUEBA  */}
+          <nav className="space-y-1">
+            <button
+              className="block w-full rounded-md px-3 py-2 text-left text-sm font-medium hover:bg-secondary"
+              onClick={() => {
+                document.getElementById("productos")?.scrollIntoView({
+                  behavior: "smooth",
+                });
+              }}
+            >
+              Productos
+            </button>
+
+            <button
+              className="block w-full rounded-md px-3 py-2 text-left text-sm font-medium hover:bg-secondary"
+              onClick={() => {
+                document.getElementById("destacados")?.scrollIntoView({
+                  behavior: "smooth",
+                });
+              }}
+            >
+              Destacados
+            </button>
+
+            <button
+              className="block w-full rounded-md px-3 py-2 text-left text-sm font-medium hover:bg-secondary"
+              onClick={() => {
+                document.getElementById("nosotros")?.scrollIntoView({
+                  behavior: "smooth",
+                });
+              }}
+            >
+              Nosotros
+            </button>
+
+            <button
+              className="block w-full rounded-md px-3 py-2 text-left text-sm font-medium hover:bg-secondary"
+              onClick={() => {
+                document.getElementById("contacto")?.scrollIntoView({
+                  behavior: "smooth",
+                });
+              }}
+            >
+              Contacto
+            </button>
           </nav>
 
-          <div className="space-y-3">
+          {/* <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Categorías</p>
             <div className="grid gap-1">
-              {categories.length === 0 ? (
+              {categories?.length === 0 ? (
                 <Link className="rounded-md px-3 py-2 text-sm hover:bg-secondary" to="/productos">
                   Ver catálogo completo
                 </Link>
@@ -56,21 +102,21 @@ export function MobileMenuSheet({ categories }: MobileMenuSheetProps) {
                 ))
               )}
             </div>
-          </div>
+          </div> */}
 
           <div className="grid gap-2 border-t pt-4">
             <button className="flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-secondary" type="button">
               <Search className="h-4 w-4" />
               Buscar
             </button>
-            <button className="flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-secondary" type="button">
+            {/* <button className="flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-secondary" type="button">
               <User className="h-4 w-4" />
               Cuenta
             </button>
             <button className="flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-secondary" type="button">
               <HelpCircle className="h-4 w-4" />
               Ayuda
-            </button>
+            </button> */}
             <button className="flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-secondary" type="button">
               <ShoppingBag className="h-4 w-4" />
               Carrito
