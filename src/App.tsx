@@ -9,7 +9,7 @@ import ProductDetail from "./pages/ProductDetail";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
-
+import AdminLayout from "@/layouts/AdminLayout";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -23,7 +23,12 @@ const App = () => (
           <Route path="/productos" element={<Products />} />
           <Route path="/productos/:slug" element={<ProductDetail />} />
           <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin" element={<AdminDashboard />} />
+
+          {/* Rutas Protegidas de Admin con Layout */}
+          <Route element={<AdminLayout />}>
+            <Route path="/admin" element={<AdminDashboard />} />
+            {/* Aquí podrás agregar más rutas admin como /admin/pedidos, etc. */}
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

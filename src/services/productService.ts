@@ -1,17 +1,17 @@
-import {
-  DraftImage,
-  EditableImage,
-  ExistingEditableImage,
-  NewEditableImage,
+import { 
+  DraftImage, 
+  EditableImage, 
+  ExistingEditableImage, 
+  NewEditableImage, 
 } from "@/types/productImage";
 import { Product } from "@/types/product";
 import { createProduct, deleteProduct, updateProduct } from "@/services/products";
-import {
-  deleteProductImage,
-  insertProductImages,
-  removeImagesFromStorage,
-  updateImagePositions,
-  uploadImageToProductStorage,
+import { 
+  deleteProductImage, 
+  insertProductImages, 
+  removeImagesFromStorage, 
+  updateImagePositions, 
+  uploadImageToProductStorage, 
 } from "@/services/productImages";
 
 type CreateProductInput = Parameters<typeof createProduct>[0];
@@ -41,10 +41,6 @@ interface UpdateProductWithImagesInput {
   originalImages: ExistingEditableImage[];
 }
 
-// interface UpdateProductWithImagesResult {
-//   hasError: boolean;
-// }
-
 function toErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
@@ -59,7 +55,6 @@ export async function uploadNewImages(
   newImages: NewEditableImage[],
 ): Promise<UploadedNewImage[]> {
   const uploadedImages: UploadedNewImage[] = [];
-
   try {
     for (const [index, image] of newImages.entries()) {
       const uploaded = await uploadImageToProductStorage(productId, image.file, index);
@@ -69,7 +64,6 @@ export async function uploadNewImages(
         localId: image.localId,
       });
     }
-
     return uploadedImages;
   } catch (error) {
     if (uploadedImages.length > 0) {
@@ -81,7 +75,6 @@ export async function uploadNewImages(
         );
       }
     }
-
     throwStepError("upload new images", error);
   }
 }
@@ -100,7 +93,6 @@ async function insertUploadedImages(
         position: 0,
       })),
     );
-
     return inserted.map((image, index) => ({
       id: image.id,
       url: image.url,
@@ -114,7 +106,6 @@ async function insertUploadedImages(
         `insert uploaded images failed and cleanup failed: ${toErrorMessage(cleanupError)}`,
       );
     }
-
     throwStepError("insert uploaded images", error);
   }
 }
@@ -150,15 +141,12 @@ export function buildFinalImageState(
           url: image.url,
         };
       }
-
       const insertedImage = insertedImages.find(
         (inserted) => inserted.localId === image.localId,
       );
-
       if (!insertedImage) {
         throw new Error(`missing inserted image for localId ${image.localId}`);
       }
-
       return insertedImage;
     });
   } catch (error) {
@@ -189,7 +177,9 @@ export async function updateProductCover(
   finalImages: FinalImageState[],
 ): Promise<void> {
   try {
-    const coverImage = finalImages.length > 0 ? finalImages[0].url : "/placeholder.svg";
+    const coverImage = finalImages.length > 0
+      ? finalImages[0].url
+      : "/placeholder.svg";
 
     await updateProduct(productId, {
       ...productData,
@@ -209,7 +199,6 @@ export async function updateProductWithImages({
   const newImages = editableImages.filter(
     (image): image is NewEditableImage => image.kind === "new",
   );
-
   const deletedImages = originalImages.filter(
     (original) =>
       !editableImages.some(
@@ -230,7 +219,6 @@ async function uploadDraftImages(
   draftImages: DraftImage[],
 ): Promise<{ path: string; url: string; position: number }[]> {
   const uploadedImages: { path: string; url: string; position: number }[] = [];
-
   try {
     for (const [index, draftImage] of draftImages.entries()) {
       const uploaded = await uploadImageToProductStorage(productId, draftImage.file, index);
@@ -240,7 +228,6 @@ async function uploadDraftImages(
         position: index,
       });
     }
-
     return uploadedImages;
   } catch (error) {
     if (uploadedImages.length > 0) {
@@ -252,7 +239,6 @@ async function uploadDraftImages(
         );
       }
     }
-
     throwStepError("upload draft images", error);
   }
 }
@@ -262,13 +248,11 @@ export async function createProductWithImages(
   draftImages: DraftImage[],
 ): Promise<{ product: Product; imagesFailed: boolean }> {
   const created = await createProduct(productData);
-
   let imagesFailed = false;
 
-  if (draftImages.length > 0) {
+  if (draftImages && draftImages.length > 0) {
     try {
       const uploadedImages = await uploadDraftImages(created.id, draftImages);
-
       const insertedImages = await insertProductImages(
         uploadedImages.map((image) => ({
           product_id: created.id,
@@ -276,22 +260,16 @@ export async function createProductWithImages(
           position: image.position,
         })),
       );
-
-      // 🔥 Normalización final igual que UPDATE
       await reorderImages(insertedImages);
-
       await updateProductCover(
         created.id,
         productData,
         insertedImages,
       );
     } catch (error) {
-      console.error("Image upload failed, product still created:", error);
-
+      console.error("❌ Error al procesar imágenes en create:", error);
       imagesFailed = true;
-
-      // ⚠️ create sigue siendo tolerante a fallos
-      // ⚠️ NO rollback
+      throw error;
     }
   }
 

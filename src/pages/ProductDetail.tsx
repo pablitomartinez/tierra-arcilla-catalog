@@ -13,6 +13,13 @@ const ProductDetail = () => {
   const { data: product, isLoading, isError } = useProductBySlug(slug);
   const { data: productImages = [] } = useProductImages(product?.id ?? null);
 
+  // 🛑 AUDITORÍA TOTAL DE DATOS QUE LLEGAN
+  console.log("🔍 DATOS REALES DEL PRODUCTO:", {
+    titulo: product?.title,
+    imagenCover: product?.image,
+    imagenesAdicionales: productImages,
+  });
+
   useEffect(() => {
     if (product) {
       document.title = `${product.title} | Tierra Arcilla`;
@@ -71,12 +78,21 @@ const ProductDetail = () => {
 
         {/* Ajuste de columnas equilibrado 50/50 en pantallas grandes */}
         <div className="grid grid-cols-1 gap-8 md:gap-12 lg:grid-cols-2 lg:gap-16">
-          
+
           {/* Columna de la Galería */}
+            {/* <div className="w-full">
+              <ProductGallery
+                coverImage={product.image}
+                productTitle={product.title}
+                images={productImages}
+              />
+            </div> */}
+
+          {/* Columna de la Galería - Blindada */}
           <div className="w-full">
             <ProductGallery
-              coverImage={product.image}
-              productTitle={product.title}
+              coverImage={product?.image || "/placeholder.svg"}
+              productTitle={product?.title ?? "Producto"}
               images={productImages}
             />
           </div>
@@ -87,7 +103,7 @@ const ProductDetail = () => {
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
                 {product.category?.name ?? "Sin categoría"}
               </span>
-              
+
               <div className="space-y-2">
                 <h1 className="font-heading text-3xl font-bold leading-tight text-foreground md:text-4xl">
                   {product.title}
@@ -96,7 +112,7 @@ const ProductDetail = () => {
                   ${product.price.toLocaleString("es-AR")}
                 </p>
               </div>
-              
+
               <p className="text-base leading-relaxed text-muted-foreground pt-2">
                 {product.description}
               </p>
@@ -117,7 +133,7 @@ const ProductDetail = () => {
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex gap-3">
                 <PackageCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
                 <div>
@@ -127,7 +143,7 @@ const ProductDetail = () => {
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex gap-3">
                 <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
                 <div>
