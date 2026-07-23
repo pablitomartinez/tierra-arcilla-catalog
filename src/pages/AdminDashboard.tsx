@@ -64,7 +64,10 @@ const AdminDashboard = () => {
       }
       setShowForm(false);
       invalidate();
-    } catch (e) { toast.error("Error"); }
+    } catch (error) {
+      console.error("Error al guardar el producto:", error);
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar el producto");
+    }
     finally { setIsSubmitting(false); }
   };
 
