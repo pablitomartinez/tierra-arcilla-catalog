@@ -1,3 +1,5 @@
+// types/productImage.ts 
+
 export interface ProductImage {
   id: string;
   productId: string;

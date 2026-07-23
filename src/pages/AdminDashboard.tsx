@@ -1,473 +1,129 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { brand } from "@/config/brand";
+import { toast } from "sonner";
+import { Plus, Trash2 } from "lucide-react";
 import { Product } from "@/types/product";
-import {
-  DraftImage,
-  EditableImage,
-  ExistingEditableImage,
-} from "@/types/productImage";
-import {
-  createProductWithImages,
-  updateProductWithImages,
-} from "@/services/productService";
-import {
-  deleteProduct,
-  toggleProductActive,
-} from "@/services/products";
+import { DraftImage, EditableImage, ExistingEditableImage } from "@/types/productImage";
+import { createProductWithImages, updateProductWithImages } from "@/services/productService";
+import { deleteProduct, toggleProductActive } from "@/services/products";
 import { getProductImages } from "@/services/productImages";
 import { createCategory, deleteCategory } from "@/services/categories";
-import { useAllProducts } from "@/hooks/useProducts";
-import { useCategories } from "@/hooks/useCategories";
-import { productKeys } from "@/hooks/useProducts";
-import { categoryKeys } from "@/hooks/useCategories";
-import { toast } from "sonner";
-import { Plus, Pencil, Trash2, LogOut } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import ProductImageUploader from "@/components/admin/ProductImageUploader";
+import { useAllProducts, productKeys } from "@/hooks/useProducts";
+import { useCategories, categoryKeys } from "@/hooks/useCategories";
+import { ProductForm } from "@/components/admin/ProductForm";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+  return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
-interface ProductFormData {
-  title: string;
-  slug: string;
-  description: string;
-  price: string;
-  categoryId: string;
-  image: string;
-}
-
-const emptyForm: ProductFormData = {
-  title: "",
-  slug: "",
-  description: "",
-  price: "",
-  categoryId: "",
-  image: "",
-};
+const emptyForm = { title: "", slug: "", description: "", price: "", categoryId: "", image: "" };
 
 const AdminDashboard = () => {
-  const navigate = useNavigate();
+  const { activeTab } = useOutletContext<{ activeTab: 'resumen' | 'productos' | 'categorias' }>();
   const queryClient = useQueryClient();
-  const { user, isAdmin, loading: authLoading, signOut } = useAuth();
   const { data: products = [] } = useAllProducts();
   const { data: categories = [] } = useCategories();
 
   const [editing, setEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<ProductFormData>(emptyForm);
+  const [form, setForm] = useState(emptyForm);
   const [draftImages, setDraftImages] = useState<DraftImage[]>([]);
   const [editableImages, setEditableImages] = useState<EditableImage[]>([]);
   const [originalImages, setOriginalImages] = useState<ExistingEditableImage[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-
-  useEffect(() => {
-    if (!authLoading && (!user || !isAdmin)) {
-      navigate("/admin/login");
-    }
-  }, [user, isAdmin, authLoading, navigate]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: productKeys.all });
     queryClient.invalidateQueries({ queryKey: productKeys.active });
   };
 
-  const clearDraftImages = () => {
-    for (const image of draftImages) {
-      URL.revokeObjectURL(image.previewUrl);
-    }
-    setDraftImages([]);
-  };
-
-  const clearEditableImages = () => {
-    for (const image of editableImages) {
-      if (image.kind === "new") {
-        URL.revokeObjectURL(image.previewUrl);
-      }
-    }
-    setEditableImages([]);
-    setOriginalImages([]);
-  };
-
-  const resetFormState = () => {
-    setForm(emptyForm);
-    clearDraftImages();
-    clearEditableImages();
-    setEditing(null);
-    setShowForm(false);
-  };
-
-  const handleLogout = async () => {
-    await signOut();
-    navigate("/admin/login");
-  };
-
   const handleTitleChange = (title: string) => {
-    setForm((current) => ({
-      ...current,
-      title,
-      slug: editing ? current.slug : slugify(title),
-    }));
+    setForm(curr => ({ ...curr, title, slug: editing ? curr.slug : slugify(title) }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return;
 
-    const price = parseFloat(form.price);
-
-    if (isNaN(price) || price <= 0) {
-      toast.error("Ingresá un precio válido");
-      return;
-    }
-
-    if (!form.categoryId) {
-      toast.error("Seleccioná una categoría");
-      return;
-    }
+    // 🛑 MIRA ESTO EN LA CONSOLA CUANDO HACES CLICK EN CREAR
+  console.log("🚀 LO QUE SE ENVÍA AL SERVICIO - draftImages:", draftImages);
 
     setIsSubmitting(true);
-
     try {
       if (editing) {
-        await updateProductWithImages({
-          productId: editing,
-          productData: {
-            title: form.title,
-            slug: form.slug,
-            description: form.description,
-            price,
-            categoryId: form.categoryId,
-            image: form.image,
-          },
-          editableImages,
-          originalImages,
-        });
-
-
-        toast.success("Producto actualizado correctamente");
-
-
-        resetFormState();
-        invalidate();
-        return;
-      }
-
-      const result = await createProductWithImages(
-        {
-          title: form.title,
-          slug: form.slug,
-          description: form.description,
-          price,
-          categoryId: form.categoryId,
-          image: form.image || "/placeholder.svg",
-          active: true,
-        },
-        draftImages
-      );
-
-      if (result.imagesFailed) {
-        toast.error("Producto creado, pero fallaron las imágenes");
+        await updateProductWithImages({ productId: editing, productData: { ...form, price: parseFloat(form.price) }, editableImages, originalImages });
+        toast.success("Actualizado");
       } else {
-        toast.success("Producto creado correctamente");
+        await createProductWithImages({ ...form, price: parseFloat(form.price), active: true }, draftImages);
+        toast.success("Creado");
       }
-
-      // toast.success("Producto creado");
-      resetFormState();
+      setShowForm(false);
       invalidate();
-    } catch (error: any) {
-      console.error("Error saving product:", error);
-
-      if (error?.code === "23505") {
-        toast.error("Ya existe un producto con ese slug");
-        return;
-      }
-
-      if (error?.message?.includes("Failed to fetch")) {
-        toast.error("Error de conexión. Verificá tu internet");
-        return;
-      }
-
-      if (error instanceof Error) {
-        toast.error("Error al subir imágenes o guardar el producto");
-        return;
-      }
-
-      toast.error("Error inesperado al guardar el producto");
-    } finally {
-      setIsSubmitting(false);
+    } catch (error) {
+      console.error("Error al guardar el producto:", error);
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar el producto");
     }
-  };
-
-  const handleEdit = (product: Product) => {
-    setForm({
-      title: product.title,
-      slug: product.slug,
-      description: product.description,
-      price: product.price.toString(),
-      categoryId: product.categoryId,
-      image: product.image,
-    });
-    clearDraftImages();
-    clearEditableImages();
-    setEditing(product.id);
-    setShowForm(true);
-
-    void (async () => {
-      try {
-        const productImages = await getProductImages(product.id);
-        const existingImages: ExistingEditableImage[] = productImages.map((image) => ({
-          kind: "existing",
-          id: image.id,
-          url: image.url,
-          position: image.position,
-        }));
-
-        setOriginalImages(existingImages);
-        setEditableImages(existingImages);
-      } catch (error) {
-        console.error("Error loading product images:", error);
-        toast.error("No se pudieron cargar las imágenes del producto");
-      }
-    })();
-  };
-
-  const handleDelete = async (id: string) => {
-    if (window.confirm("¿Eliminar este producto?")) {
-      try {
-        await deleteProduct(id);
-        toast.success("Producto eliminado");
-        invalidate();
-      } catch {
-        toast.error("Error al eliminar");
-      }
-    }
-  };
-
-  const handleToggle = async (id: string) => {
-    try {
-      await toggleProductActive(id);
-      invalidate();
-    } catch {
-      toast.error("Error al cambiar estado");
-    }
+    finally { setIsSubmitting(false); }
   };
 
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCategoryName.trim()) return;
-    try {
-      await createCategory({ name: newCategoryName.trim(), slug: slugify(newCategoryName) });
-      toast.success("Categoría creada");
-      setNewCategoryName("");
-      setShowCategoryForm(false);
-      queryClient.invalidateQueries({ queryKey: categoryKeys.all });
-    } catch {
-      toast.error("Error al crear categoría");
-    }
+    await createCategory({ name: newCategoryName, slug: slugify(newCategoryName) });
+    setNewCategoryName("");
+    setShowCategoryForm(false);
+    queryClient.invalidateQueries({ queryKey: categoryKeys.all });
   };
 
   const handleDeleteCategory = async (id: string) => {
-    if (window.confirm("¿Eliminar esta categoría? Los productos asociados podrían verse afectados.")) {
-      try {
-        await deleteCategory(id);
-        toast.success("Categoría eliminada");
-        queryClient.invalidateQueries({ queryKey: categoryKeys.all });
-        invalidate();
-      } catch (error: any) {
-        console.error(error);
-        toast.error(error.message ?? "Error al eliminar categoría");
-      }
-    }
+    await deleteCategory(id);
+    queryClient.invalidateQueries({ queryKey: categoryKeys.all });
   };
 
-  if (authLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-muted-foreground">Cargando...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container flex h-14 items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="font-heading text-lg font-bold text-foreground">{brand.name}</span>
-            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Admin</span>
-          </div>
-          <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5">
-            <LogOut className="h-4 w-4" />Salir
-          </Button>
-        </div>
-      </header>
-
-      <div className="container py-6 md:py-10 space-y-8">
+    <div className="space-y-8">
+      {activeTab === 'categorias' && (
         <section className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <h2 className="font-heading text-xl font-bold text-foreground">Categorías</h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowCategoryForm(!showCategoryForm)}
-              className="gap-1.5"
-            >
-              <Plus className="h-4 w-4" />Nueva categoría
-            </Button>
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold">Categorías</h2>
+            <Button onClick={() => setShowCategoryForm(!showCategoryForm)}><Plus className="h-4 w-4 mr-2" /> Nueva</Button>
           </div>
-
           {showCategoryForm && (
-            <form onSubmit={handleCreateCategory} className="bg-card border rounded-lg p-4 flex gap-3 items-end">
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="cat-name">Nombre</Label>
-                <Input
-                  id="cat-name"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  required
-                  placeholder="Ej: Cuencos"
-                />
-              </div>
-              <Button type="submit" size="sm">Crear</Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => setShowCategoryForm(false)}>Cancelar</Button>
+            <form onSubmit={handleCreateCategory} className="flex gap-2">
+              <Input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="Nombre..." />
+              <Button type="submit">Guardar</Button>
             </form>
           )}
-
-          <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => (
-              <div key={cat.id} className="flex items-center gap-1 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-full text-sm">
-                {cat.name}
-                <button onClick={() => handleDeleteCategory(cat.id)} className="ml-1 text-destructive hover:text-destructive/80">
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
+          {categories.map(cat => (
+            <div key={cat.id} className="flex justify-between p-2 border rounded">
+              {cat.name} <Button variant="ghost" onClick={() => handleDeleteCategory(cat.id)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          ))}
         </section>
+      )}
 
+      {activeTab === 'productos' && (
         <section className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <h1 className="font-heading text-2xl font-bold text-foreground">Productos</h1>
-            <Button
-              onClick={() => {
-                setForm(emptyForm);
-                clearDraftImages();
-                clearEditableImages();
-                setEditing(null);
-                setShowForm(!showForm);
-              }}
-              className="gap-1.5"
-            >
-              <Plus className="h-4 w-4" />Nuevo producto
-            </Button>
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold">Productos</h1>
+            <Button onClick={() => setShowForm(!showForm)}><Plus className="h-4 w-4 mr-2" /> Nuevo</Button>
           </div>
-
           {showForm && (
-            <form onSubmit={handleSubmit} className="bg-card border rounded-lg p-4 md:p-6 space-y-4">
-              <h2 className="font-heading text-lg font-semibold text-foreground">
-                {editing ? "Editar producto" : "Nuevo producto"}
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Título</Label>
-                  <Input id="title" value={form.title} onChange={(e) => handleTitleChange(e.target.value)} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="slug">Slug</Label>
-                  <Input id="slug" value={form.slug} onChange={(e) => setForm((current) => ({ ...current, slug: e.target.value }))} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="price">Precio ($)</Label>
-                  <Input id="price" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm((current) => ({ ...current, price: e.target.value }))} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="category">Categoría</Label>
-                  <Select value={form.categoryId} onValueChange={(value) => setForm((current) => ({ ...current, categoryId: value }))}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar categoría" /></SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Descripción</Label>
-                <Textarea id="description" value={form.description} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} rows={3} required />
-              </div>
-              {editing ? (
-                <ProductImageUploader
-                  editableImages={editableImages}
-                  onChange={setEditableImages}
-                />
-              ) : (
-                <ProductImageUploader
-                  draftImages={draftImages}
-                  onChange={setDraftImages}
-                />
-              )}
-
-              <div className="flex gap-2">
-                <Button type="submit" disabled={isSubmitting}>
-                  {editing ? "Guardar cambios" : "Crear producto"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isSubmitting}
-                  onClick={() => {
-                    setShowForm(false);
-                    setEditing(null);
-                    setForm(emptyForm);
-                    clearDraftImages();
-                    clearEditableImages();
-                  }}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </form>
+            <ProductForm 
+              form={form} setForm={setForm} onSubmit={handleSubmit} 
+              onCancel={() => setShowForm(false)} categories={categories} 
+              isSubmitting={isSubmitting} editing={editing} 
+              draftImages={draftImages} setDraftImages={setDraftImages} 
+              editableImages={editableImages} setEditableImages={setEditableImages} 
+              handleTitleChange={handleTitleChange} 
+            />
           )}
-
-          <div className="space-y-3">
-            {products.map((product) => (
-              <div key={product.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-card border rounded-lg p-3 md:p-4">
-                <img src={product.image} alt={product.title} className="h-14 w-14 rounded object-cover flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-foreground truncate">{product.title}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {product.category?.name ?? "Sin categoría"} · ${product.price.toLocaleString("es-AR")}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Switch checked={product.active} onCheckedChange={() => handleToggle(product.id)} aria-label="Toggle active" />
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}><Pencil className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(product.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                </div>
-              </div>
-            ))}
-          </div>
         </section>
-      </div>
+      )}
     </div>
   );
 };
