@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ProductImage } from "@/types/productImage";
 import { cn } from "@/lib/utils";
@@ -14,30 +14,36 @@ export function ProductGallery({
   productTitle,
   images = [],
 }: ProductGalleryProps) {
-  // Fallback visual si no hay ninguna imagen en absoluto
   const fallbackImage = "/placeholder.svg";
 
-  // 1. Construcción blindada de las URLs de la galería
+  // Blindaje total contra duplicados de URLs entre el cover y product_images
   const galleryImages = useMemo(() => {
-    const urls = [
+    const rawUrls = [
       coverImage,
       ...(images?.map((image) => image.url) || []),
     ].filter((url): url is string => Boolean(url && typeof url === "string"));
 
-    // Si no hay ninguna URL válida, usamos el placeholder por defecto
-    if (urls.length === 0) {
+    if (rawUrls.length === 0) {
       return [fallbackImage];
     }
 
-    return Array.from(new Set(urls));
+    // Eliminamos duplicados exactos de URLs para evitar colisiones en la galería
+    return Array.from(new Set(rawUrls));
   }, [coverImage, images]);
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(() => new Set());
 
-  // Aseguramos que activeIndex nunca quede fuera de rango
+  // React Query puede entregar primero sólo el cover y luego reemplazar la lista
+  // al resolver product_images. Nunca dejamos que el índice apunte fuera de ella.
+  useEffect(() => {
+    setActiveIndex((currentIndex) => Math.min(currentIndex, galleryImages.length - 1));
+  }, [galleryImages]);
+
   const safeIndex = activeIndex >= galleryImages.length ? 0 : activeIndex;
   const activeImage = galleryImages[safeIndex] ?? fallbackImage;
+  const mainImageSrc = failedImageUrls.has(activeImage) ? fallbackImage : activeImage;
 
   const hasMultipleImages = galleryImages.length > 1;
 
@@ -57,7 +63,7 @@ export function ProductGallery({
 
   return (
     <div className="flex flex-col gap-3 md:grid md:grid-cols-[72px_1fr] md:gap-4">
-      {/* DESKTOP THUMBNAILS: Solo si hay más de 1 imagen */}
+      {/* DESKTOP THUMBNAILS */}
       {hasMultipleImages && (
         <div className="hidden md:flex md:flex-col md:order-1 w-[72px] shrink-0 gap-3">
           {galleryImages.map((image, index) => (
@@ -84,22 +90,23 @@ export function ProductGallery({
         </div>
       )}
 
-      {/* MAIN IMAGE: SIEMPRE SE RENDERIZA DE FORMA SEGURA */}
+      {/* MAIN IMAGE */}
       <div
-        className="relative w-full overflow-hidden rounded-2xl bg-muted md:order-2"
+        className="relative aspect-square min-h-[240px] w-full min-w-0 overflow-hidden rounded-2xl bg-muted md:order-2"
         onTouchStart={(event) => setTouchStart(event.touches[0]?.clientX ?? null)}
         onTouchEnd={(event) => handleTouchEnd(event.changedTouches[0]?.clientX ?? 0)}
       >
-        <div className="aspect-square w-full">
-          <img
-            key={activeImage}
-            src={activeImage}
-            alt={productTitle}
-            className="h-full w-full rounded-2xl object-cover object-center"
-          />
-        </div>
+        <img
+          src={mainImageSrc}
+          alt={productTitle}
+          className="absolute inset-0 block h-full w-full object-cover object-center"
+          onError={() => {
+            if (activeImage !== fallbackImage) {
+              setFailedImageUrls((current) => new Set(current).add(activeImage));
+            }
+          }}
+        />
 
-        {/* CONTROLES DE NAVEGACIÓN (Solo si hay múltiples imágenes) */}
         {hasMultipleImages && (
           <>
             <button
@@ -120,7 +127,6 @@ export function ProductGallery({
               <ChevronRight className="h-5 w-5" />
             </button>
 
-            {/* MOBILE DOTS */}
             <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-background/85 px-2.5 py-1.5 backdrop-blur md:hidden">
               {galleryImages.map((image, index) => (
                 <button
