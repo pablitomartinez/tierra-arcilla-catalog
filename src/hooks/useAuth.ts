@@ -6,41 +6,27 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  //true si hay usuario
+  const isAdmin = !!user; 
 
   useEffect(() => {
     let mounted = true;
 
-    const resolveAdmin = async (currentSession: Session | null) => {
-      if (!currentSession?.user) {
-        if (mounted) setIsAdmin(false);
-        return;
-      }
-
-      const { data: hasAdminRole, error } = await supabase.rpc("has_role", {
-        _user_id: currentSession.user.id,
-        _role: "admin",
-      });
-
-      if (mounted) setIsAdmin(!error && hasAdminRole === true);
-    };
-
     const applySession = async (currentSession: Session | null) => {
       if (!mounted) return;
-
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
-      await resolveAdmin(currentSession);
-
-      if (mounted) setLoading(false);
+      setLoading(false);
     };
 
+    // Escuchamos cambios en la sesión (login, logout)
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         void applySession(session);
-      },
+      }
     );
 
+    // Obtenemos la sesión inicial al cargar la app
     void supabase.auth.getSession().then(({ data }) => applySession(data.session));
 
     return () => {
@@ -54,7 +40,6 @@ export function useAuth() {
       email,
       password,
     });
-
     return { error };
   };
 
