@@ -349,47 +349,98 @@ const Index = () => {
                 text-foreground
               `}
             >
-              Cerámica creada desde lo simple y lo auténtico
+              Haciendo de tus espacios lugares únicos 🌷
             </h2>
 
             <p
               className={`
                 ${ui.typography.body}
                 text-muted-foreground
+                leading-relaxed
               `}
             >
-              Tierra Arcilla nace del deseo de volver a los procesos lentos,
-              manuales y reales. Cada colección busca transmitir calma,
-              conexión con la naturaleza y aprecio por los objetos hechos con
-              intención.
+              {brand.description}
             </p>
 
-            <p
+            {/* Recuadro de Contacto y Ubicación */}
+            <div 
               className="
-                text-sm
-                leading-relaxed
-                text-muted-foreground
+                mt-6 
+                rounded-2xl 
+                bg-secondary/30 
+                p-6 
+                border 
+                border-border/50
+                space-y-4
               "
             >
-              Valoramos las formas orgánicas, las imperfecciones y la identidad
-              única que surge en cada horneada. No buscamos producción masiva:
-              buscamos piezas con carácter.
-            </p>
+              <div>
+                <h3 className="font-semibold text-foreground flex items-center gap-2">
+                  📍 Dónde nos encontrás
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {brand.address}
+                </p>
+              </div>
+              
+              <div className="pt-2 border-t border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-foreground flex items-center gap-2">
+                    📱 Contacto
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {brand.whatsapp.displayNumber}
+                  </p>
+                </div>
+
+                {/* Botón directo a WhatsApp */}
+                <a
+                  href={`https://wa.me/${brand.whatsapp.number}?text=${encodeURIComponent("Hola! Estuve viendo la web de Tierra Arcilla y quisiera hacerles una consulta.")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    inline-flex 
+                    items-center 
+                    justify-center 
+                    gap-2 
+                    rounded-xl 
+                    bg-[#25D366] 
+                    hover:bg-[#20bd5a] 
+                    px-4 
+                    py-2.5 
+                    text-sm 
+                    font-medium 
+                    text-white 
+                    shadow-sm 
+                    transition-all 
+                    hover:scale-105
+                    active:scale-95
+                  "
+                >
+                  💬 Chatear por WhatsApp
+                </a>
+              </div>
+            </div>
+
           </div>
 
           <div
             className={`
               ${ui.radius.card}
               overflow-hidden
+              shadow-lg
             `}
           >
             <img
-              src={heroImage}
-              alt="Proceso artesanal de Tierra Arcilla"
+              src={heroImage} // ¡Acordate de cambiar esta imagen luego por una de las chicas o sus productos!
+              alt="Productos artesanales de Tierra Arcilla"
               className="
                 h-full
                 w-full
                 object-cover
+                transition-transform 
+                duration-500 
+                hover:scale-105
               "
             />
           </div>
