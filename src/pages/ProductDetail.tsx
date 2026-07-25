@@ -15,10 +15,10 @@ import { toast } from "sonner";
 const ProductDetail = () => {
   const { slug } = useParams<{ slug: string }>();
 
-  // 1. Obtenemos el producto de forma segura
+  // 1. Obtención de datos con React Query
   const { data: product, isLoading, isError } = useProductBySlug(slug);
-
-  // 2. IMPORTANTE: Evitamos ejecutar el hook de imágenes si el producto aún no existe o no tiene ID
+  
+  // 2. Solo solicitamos las imágenes si el producto existe y tiene un ID válido
   const { data: productImages = [] } = useProductImages(product?.id ?? null);
 
   const [copied, setCopied] = useState(false);
@@ -29,7 +29,7 @@ const ProductDetail = () => {
     };
   }, []);
 
-  // 3. Estado de Carga (Skeleton UI)
+  // 3. Estado de Carga (Skeleton)
   if (isLoading) {
     return (
       <PublicLayout>
@@ -50,7 +50,7 @@ const ProductDetail = () => {
     );
   }
 
-  // 4. Pantalla defensiva si el producto no existe o dio error
+  // 4. Si hay error o el producto no existe (ej. /productos/test-1 si no fue creado en Supabase)
   if (isError || !product) {
     return (
       <PublicLayout>
@@ -65,7 +65,7 @@ const ProductDetail = () => {
             No encontramos este producto
           </h1>
           <p className="text-muted-foreground max-w-md mb-8 text-base">
-            Es posible que el enlace esté roto, que el producto haya sido eliminado o que aún no se encuentre publicado en nuestra tienda.
+            Es posible que el enlace esté roto, que el producto haya sido eliminado o que aún no exista en la base de datos.
           </p>
           <Button asChild className="gap-2 rounded-xl px-6 py-6 font-semibold shadow-md">
             <Link to="/productos">
@@ -83,7 +83,7 @@ const ProductDetail = () => {
     title: product.title,
     description: product.description || "",
     price: product.price,
-    imageUrl: product.image || productImages[0]?.url
+    imageUrl: product.image || (productImages.length > 0 ? productImages[0]?.url : undefined)
   };
 
   const handleCopyText = () => {
@@ -140,17 +140,17 @@ const ProductDetail = () => {
         </div>
 
         <div className="grid grid-cols-1 gap-8 md:gap-12 lg:grid-cols-12 lg:gap-16 items-start">
+          
+          {/* Columna Izquierda: Galería blindada */}
           <div className="w-full lg:col-span-7">
-            {/* Renderizado condicional estricto de la galería */}
-            {product && (
-              <ProductGallery
-                coverImage={product.image || "/placeholder.svg"}
-                productTitle={product.title || "Producto"}
-                images={productImages}
-              />
-            )}
+            <ProductGallery
+              coverImage={product.image || "/placeholder.svg"}
+              productTitle={product.title || "Producto"}
+              images={productImages}
+            />
           </div>
 
+          {/* Columna Derecha: Información comercial */}
           <div className="space-y-6 lg:col-span-5 lg:sticky lg:top-24 lg:self-start">
             <div className="space-y-4">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80 bg-secondary/50 px-2.5 py-1 rounded-md">
