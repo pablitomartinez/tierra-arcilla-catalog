@@ -16,7 +16,7 @@ export function ProductGallery({
 }: ProductGalleryProps) {
   const fallbackImage = "/placeholder.svg";
 
-  // Blindaje total contra duplicados de URLs entre el cover y product_images
+  // Blindaje total contra duplicados de URLs
   const galleryImages = useMemo(() => {
     const rawUrls = [
       coverImage,
@@ -27,23 +27,24 @@ export function ProductGallery({
       return [fallbackImage];
     }
 
-    // Eliminamos duplicados exactos de URLs para evitar colisiones en la galería
     return Array.from(new Set(rawUrls));
   }, [coverImage, images]);
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(() => new Set());
+  
+  // Solución definitiva al error 'add' de undefined: Usamos un array simple en lugar de new Set()
+  const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
 
-  // React Query puede entregar primero sólo el cover y luego reemplazar la lista
-  // al resolver product_images. Nunca dejamos que el índice apunte fuera de ella.
   useEffect(() => {
     setActiveIndex((currentIndex) => Math.min(currentIndex, galleryImages.length - 1));
   }, [galleryImages]);
 
   const safeIndex = activeIndex >= galleryImages.length ? 0 : activeIndex;
   const activeImage = galleryImages[safeIndex] ?? fallbackImage;
-  const mainImageSrc = failedImageUrls.has(activeImage) ? fallbackImage : activeImage;
+  
+  // Verificación segura con array en lugar de .has() de un Set potencialmente volátil
+  const mainImageSrc = failedImageUrls.includes(activeImage) ? fallbackImage : activeImage;
 
   const hasMultipleImages = galleryImages.length > 1;
 
@@ -101,8 +102,8 @@ export function ProductGallery({
           alt={productTitle}
           className="absolute inset-0 block h-full w-full object-cover object-center"
           onError={() => {
-            if (activeImage !== fallbackImage) {
-              setFailedImageUrls((current) => new Set(current).add(activeImage));
+            if (activeImage !== fallbackImage && !failedImageUrls.includes(activeImage)) {
+              setFailedImageUrls((current) => [...current, activeImage]);
             }
           }}
         />
