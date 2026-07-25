@@ -1,19 +1,22 @@
 import { useParams, Link } from "react-router-dom";
-import { useEffect } from "react";
-import { ArrowLeft, PackageCheck, ShieldCheck, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Helmet } from "react-helmet-async";
+import { ArrowLeft, PackageCheck, ShieldCheck, Sparkles, Share2, Copy, Check } from "lucide-react";
 import { PublicLayout } from "@/layouts/PublicLayout";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { ProductGallery } from "@/components/store/product/ProductGallery";
 import { useProductImages } from "@/hooks/useProductImages";
 import { useProductBySlug } from "@/hooks/useProducts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { handleShareProduct, formatProductShareText } from "@/utils/shareProduct";
+import { toast } from "sonner";
 
 /**
  * Componente: ProductDetail
  * Descripción: Página de detalle de un producto específico en la tienda pública.
- * Sigue una estructura inspirada en plataformas de e-commerce (tipo Mercado Libre / Tienda Nube),
- * optimizada para la conversión mediante un llamado a la acción (CTA) directo por WhatsApp
- * y respaldada por una galería visual interactiva y sellos de confianza artesanal.
+ * Optimizado con SEO dinámico (Open Graph), botón de compartir integrado
+ * y pasarela inspirada en e-commerce (Mercado Libre / Tienda Nube).
  */
 const ProductDetail = () => {
   // 1. Obtención de parámetros de la URL (el slug único del producto)
@@ -23,15 +26,15 @@ const ProductDetail = () => {
   const { data: product, isLoading, isError } = useProductBySlug(slug);
   const { data: productImages = [] } = useProductImages(product?.id ?? null);
 
-  // 3. Efecto para actualizar dinámicamente el título de la pestaña del navegador
+  // Estado local para manejar el feedback visual del botón "Copiar info"
+  const [copied, setCopied] = useState(false);
+
+  // 3. Efecto para manejar el título de respaldo
   useEffect(() => {
-    if (product) {
-      document.title = `${product.title} | Tierra Arcilla`;
-    }
     return () => {
       document.title = "Tierra Arcilla - Cerámica Artesanal";
     };
-  }, [product]);
+  }, []);
 
   // 4. Estado de Carga (Skeleton UI para evitar saltos visuales bruscos)
   if (isLoading) {
@@ -70,21 +73,76 @@ const ProductDetail = () => {
     );
   }
 
-  // 6. Renderizado principal de la vista del producto
+  // Preparamos los datos estructurados para las funciones de compartir que creamos en utils
+  const shareData = {
+    id: product.id,
+    title: product.title,
+    description: product.description || "",
+    price: product.price,
+    imageUrl: product.image || productImages[0]?.url
+  };
+
+  const handleCopyText = () => {
+    const text = formatProductShareText(shareData);
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success("¡Información del producto copiada al portapapeles!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // 6. Renderizado principal de la vista del producto con SEO y Compartir integrado
   return (
     <PublicLayout>
+      {/* SEO Dinámico y Open Graph para compartir en WhatsApp, Redes y Google */}
+      <Helmet>
+        <title>{`${product.title} | Tierra Arcilla`}</title>
+        <meta name="description" content={product.description || `Pieza artesanal exclusiva de Tierra Arcilla. Precio: $${product.price}`} />
+        
+        {/* Open Graph / Redes Sociales / WhatsApp */}
+        <meta property="og:title" content={`${product.title} | Tierra Arcilla`} />
+        <meta property="og:description" content={product.description || "Pieza de cerámica artesanal modelada a mano."} />
+        <meta property="og:image" content={shareData.imageUrl || "/placeholder.svg"} />
+        <meta property="og:url" content={window.location.href} />
+        <meta property="og:type" content="product" />
+      </Helmet>
+
       <article className="container pt-4 pb-12 md:py-12 lg:py-16">
         
-        {/* Enlace superior para regresar al listado general del catálogo */}
-        <Link
-          to="/productos"
-          className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground font-medium"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver al catálogo
-        </Link>
+        {/* Enlace superior para regresar al listado general del catálogo y Botón rápido de Compartir */}
+        <div className="mb-6 flex items-center justify-between">
+          <Link
+            to="/productos"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground font-medium"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver al catálogo
+          </Link>
 
-        {/* Estructura en grilla de dos columnas (Galería e Información) */}
+          {/* Botones rápidos de Compartir públicos */}
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => handleShareProduct(shareData)}
+              className="gap-2 text-xs font-medium border-emerald-600/30 hover:bg-emerald-50 hover:text-emerald-700 transition"
+            >
+              <Share2 className="h-3.5 w-3.5 text-emerald-600" />
+              Compartir
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleCopyText}
+              className="gap-2 text-xs font-medium"
+              title="Copiar información completa"
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{copied ? "¡Copiado!" : "Copiar texto"}</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Estructura en grilla de دو columnas (Galería e Información) */}
         <div className="grid grid-cols-1 gap-8 md:gap-12 lg:grid-cols-12 lg:gap-16 items-start">
 
           {/* Columna Izquierda: Galería de imágenes con miniaturas y visualizador */}

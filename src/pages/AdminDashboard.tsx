@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { ShareProductButton } from "@/components/admin/ShareProductButton";
 import { toast } from "sonner";
 import { 
   Plus, 
@@ -315,6 +316,7 @@ const AdminDashboard = () => {
             {categories.map(cat => (
               <div key={cat.id} className="flex justify-between items-center p-3 bg-white border rounded-lg shadow-sm">
                 <span className="font-medium">{cat.name}</span> 
+
                 <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDeleteCategory(cat.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -391,6 +393,8 @@ const AdminDashboard = () => {
                           </span>
                         </td>
                         <td className="p-4 text-right space-x-1">
+                          {/* ACÁ PONEMOS EL NUEVO BOTÓN DE COMPARTIR */}
+                          <ShareProductButton product={product} />
                           <Button 
                             variant="ghost" 
                             size="sm" 

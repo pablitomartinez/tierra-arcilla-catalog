@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, MapPin, Instagram } from "lucide-react";
 
 import { PublicLayout } from "@/layouts/PublicLayout";
 import { ProductCard } from "@/components/ProductCard";
@@ -18,11 +18,9 @@ const Index = () => {
   const { data: products = [], isLoading } = useActiveProducts();
 
   // 1. TODOS LOS PRODUCTOS (Para el carrusel principal)
-  // Tomamos los primeros 8 productos activos que tengas para que el carrusel gire
   const allProductsCarousel = products.slice(0, 8);
 
-  // 2. OPCIONES BOX (Filtramos usando "any" para evitar el error de TypeScript)
-  // Busca cualquier categoría que tenga la palabra "box"
+  // 2. OPCIONES BOX
   const boxProducts = products
     .filter((p: any) => {
       const catName = p.categories?.name?.toLowerCase() || "";
@@ -172,6 +170,57 @@ const Index = () => {
             oficio cerámico. Trabajamos con técnicas tradicionales, respetando
             los tiempos de la arcilla y buscando la belleza en lo imperfecto.
           </p>
+        </div>
+      </section>
+
+      {/* NUEVO PUNTO DE VENTA: REGALARTE */}
+      <section className="bg-zinc-950 py-16 md:py-24 text-zinc-50 border-y border-zinc-800">
+        <div className={`${ui.container} flex flex-col items-center justify-between gap-12 md:flex-row`}>
+          {/* Información y Texto */}
+          <div className="space-y-6 md:w-1/2">
+            <span className="inline-block rounded-full bg-zinc-800/80 px-4 py-1.5 text-xs font-semibold tracking-wide text-zinc-300 uppercase">
+              Nuevo Punto de Venta
+            </span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-heading font-bold text-white leading-tight">
+              ¡Nuestros productos también están en <span className="text-amber-500">Regalarte</span>!
+            </h2>
+            <p className="text-zinc-400 md:text-lg leading-relaxed">
+              <strong>Regalarte Emprendedor</strong> es un hermoso local exclusivo que revende productos de emprendedoras locales. ¡Ahora podés acercarte a conocer y llevarte nuestras creaciones de Tierra Arcilla en persona!
+            </p>
+
+            <div className="pt-4 space-y-4">
+              <div className="flex items-center gap-3 text-zinc-300 bg-zinc-900/50 p-3 rounded-lg border border-zinc-800">
+                <MapPin className="h-5 w-5 text-amber-500" />
+                <span className="font-medium">Senador Pérez 549 - Jujuy</span>
+              </div>
+              <div className="flex items-center gap-3 text-zinc-300 bg-zinc-900/50 p-3 rounded-lg border border-zinc-800">
+                <Instagram className="h-5 w-5 text-amber-500" />
+                <a
+                  href="https://instagram.com/regalarteemprendedor"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium hover:text-amber-500 transition-colors"
+                >
+                  @regalarteemprendedor
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Logo Container (Redondo, sin borde, más grande y responsive) */}
+          <div className="flex w-full justify-center md:w-1/2 lg:w-5/12">
+            <div className="flex aspect-square w-full max-w-[280px] sm:max-w-[320px] md:max-w-[400px] items-center justify-center rounded-full bg-black p-8 sm:p-12 shadow-2xl relative overflow-hidden">
+              {/* Decoración de fondo sutil */}
+              <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/30 to-transparent"></div>
+
+              {/* AQUI VA LA IMAGEN DEL LOGO BLANCO */}
+              <img
+                src="/regalarte.png"
+                alt="Logo Regalarte Emprendedor"
+                className="relative z-10 w-full h-auto object-contain transition-transform duration-500 hover:scale-105"
+              />
+            </div>
+          </div>
         </div>
       </section>
 
