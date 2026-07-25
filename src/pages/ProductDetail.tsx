@@ -12,31 +12,24 @@ import { Button } from "@/components/ui/button";
 import { handleShareProduct, formatProductShareText } from "@/utils/shareProduct";
 import { toast } from "sonner";
 
-/**
- * Componente: ProductDetail
- * Descripción: Página de detalle de un producto específico en la tienda pública.
- * Optimizado con SEO dinámico (Open Graph), botón de compartir integrado
- * y pasarela inspirada en e-commerce (Mercado Libre / Tienda Nube).
- */
 const ProductDetail = () => {
-  // 1. Obtención de parámetros de la URL (el slug único del producto)
   const { slug } = useParams<{ slug: string }>();
 
-  // 2. Hooks de React Query para obtener la información del producto y sus imágenes adicionales
+  // 1. Obtenemos el producto de forma segura
   const { data: product, isLoading, isError } = useProductBySlug(slug);
+
+  // 2. IMPORTANTE: Evitamos ejecutar el hook de imágenes si el producto aún no existe o no tiene ID
   const { data: productImages = [] } = useProductImages(product?.id ?? null);
 
-  // Estado local para manejar el feedback visual del botón "Copiar info"
   const [copied, setCopied] = useState(false);
 
-  // 3. Efecto para manejar el título de respaldo
   useEffect(() => {
     return () => {
       document.title = "Tierra Arcilla - Cerámica Artesanal";
     };
   }, []);
 
-  // 4. Estado de Carga (Skeleton UI para evitar saltos visuales bruscos)
+  // 3. Estado de Carga (Skeleton UI)
   if (isLoading) {
     return (
       <PublicLayout>
@@ -57,7 +50,7 @@ const ProductDetail = () => {
     );
   }
 
-  // 5. Manejo de errores o productos inexistentes / inactivos (Pantalla de "Producto no encontrado" mejorada)
+  // 4. Pantalla defensiva si el producto no existe o dio error
   if (isError || !product) {
     return (
       <PublicLayout>
@@ -85,7 +78,6 @@ const ProductDetail = () => {
     );
   }
 
-  // Preparamos los datos estructurados para las funciones de compartir que creamos en utils
   const shareData = {
     id: product.id,
     title: product.title,
@@ -102,15 +94,11 @@ const ProductDetail = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // 6. Renderizado principal de la vista del producto con SEO y Compartir integrado
   return (
     <PublicLayout>
-      {/* SEO Dinámico y Open Graph para compartir en WhatsApp, Redes y Google */}
       <Helmet>
         <title>{`${product.title} | Tierra Arcilla`}</title>
         <meta name="description" content={product.description || `Pieza artesanal exclusiva de Tierra Arcilla. Precio: $${product.price}`} />
-        
-        {/* Open Graph / Redes Sociales / WhatsApp */}
         <meta property="og:title" content={`${product.title} | Tierra Arcilla`} />
         <meta property="og:description" content={product.description || "Pieza de cerámica artesanal modelada a mano."} />
         <meta property="og:image" content={shareData.imageUrl || "/placeholder.svg"} />
@@ -119,8 +107,6 @@ const ProductDetail = () => {
       </Helmet>
 
       <article className="container pt-4 pb-12 md:py-12 lg:py-16">
-        
-        {/* Enlace superior para regresar al listado general del catálogo y Botón rápido de Compartir */}
         <div className="mb-6 flex items-center justify-between">
           <Link
             to="/productos"
@@ -130,7 +116,6 @@ const ProductDetail = () => {
             Volver al catálogo
           </Link>
 
-          {/* Botones rápidos de Compartir públicos */}
           <div className="flex items-center gap-2">
             <Button 
               variant="outline" 
@@ -154,22 +139,19 @@ const ProductDetail = () => {
           </div>
         </div>
 
-        {/* Estructura en grilla de columnas (Galería e Información) */}
         <div className="grid grid-cols-1 gap-8 md:gap-12 lg:grid-cols-12 lg:gap-16 items-start">
-
-          {/* Columna Izquierda: Galería de imágenes con miniaturas y visualizador */}
           <div className="w-full lg:col-span-7">
-            <ProductGallery
-              coverImage={product?.image || "/placeholder.svg"}
-              productTitle={product?.title ?? "Producto"}
-              images={productImages}
-            />
+            {/* Renderizado condicional estricto de la galería */}
+            {product && (
+              <ProductGallery
+                coverImage={product.image || "/placeholder.svg"}
+                productTitle={product.title || "Producto"}
+                images={productImages}
+              />
+            )}
           </div>
 
-          {/* Columna Derecha: Información comercial, precio, descripción y botón de contacto */}
           <div className="space-y-6 lg:col-span-5 lg:sticky lg:top-24 lg:self-start">
-            
-            {/* Bloque de Categoría, Título y Precio */}
             <div className="space-y-4">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80 bg-secondary/50 px-2.5 py-1 rounded-md">
                 {product.category?.name ?? "Sin categoría"}
@@ -180,7 +162,7 @@ const ProductDetail = () => {
                   {product.title}
                 </h1>
                 <p className="text-3xl font-extrabold tracking-tight text-amber-900">
-                  ${product.price.toLocaleString("es-AR")}
+                  ${product.price?.toLocaleString("es-AR")}
                 </p>
               </div>
 
@@ -189,7 +171,6 @@ const ProductDetail = () => {
               </p>
             </div>
 
-            {/* Bloque de Acción Principal: Botón de WhatsApp destacado */}
             <div className="pt-2">
               <div className="transform transition-all hover:scale-[1.01]">
                 <WhatsAppButton 
@@ -202,16 +183,12 @@ const ProductDetail = () => {
               </p>
             </div>
 
-            {/* Listado de características y beneficios de confianza (Valor agregado) */}
             <div className="grid gap-4 border-y border-border/60 py-6 my-2">
-              
               <div className="flex gap-3 items-start">
                 <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
                 <div>
                   <p className="text-sm font-semibold text-foreground">Pieza artesanal</p>
-                  <p className="text-sm text-muted-foreground">
-                    Cada producto puede tener variaciones propias del trabajo manual.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Cada producto puede tener variaciones propias del trabajo manual.</p>
                 </div>
               </div>
 
@@ -219,9 +196,7 @@ const ProductDetail = () => {
                 <PackageCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
                 <div>
                   <p className="text-sm font-semibold text-foreground">Consulta de disponibilidad</p>
-                  <p className="text-sm text-muted-foreground">
-                    Coordinamos stock, tiempos y entrega de forma directa.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Coordinamos stock, tiempos y entrega de forma directa.</p>
                 </div>
               </div>
 
@@ -229,14 +204,10 @@ const ProductDetail = () => {
                 <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
                 <div>
                   <p className="text-sm font-semibold text-foreground">Compra asistida</p>
-                  <p className="text-sm text-muted-foreground">
-                    Te acompañamos en todo el proceso antes de confirmar tu pedido.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Te acompañamos en todo el proceso antes de confirmar tu pedido.</p>
                 </div>
               </div>
-
             </div>
-
           </div>
         </div>
       </article>
