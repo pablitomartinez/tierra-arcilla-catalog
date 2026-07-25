@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { ArrowLeft, PackageCheck, ShieldCheck, Sparkles, Share2, Copy, Check } from "lucide-react";
+import { ArrowLeft, PackageCheck, ShieldCheck, Sparkles, Share2, Copy, Check, AlertCircle } from "lucide-react";
 import { PublicLayout } from "@/layouts/PublicLayout";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { ProductGallery } from "@/components/store/product/ProductGallery";
@@ -57,17 +57,29 @@ const ProductDetail = () => {
     );
   }
 
-  // 5. Manejo de errores o productos inexistentes / inactivos
+  // 5. Manejo de errores o productos inexistentes / inactivos (Pantalla de "Producto no encontrado" mejorada)
   if (isError || !product) {
     return (
       <PublicLayout>
-        <div className="container py-20 text-center">
-          <h1 className="mb-4 font-heading text-2xl font-bold text-foreground">
-            Producto no encontrado
+        <Helmet>
+          <title>Producto no encontrado | Tierra Arcilla</title>
+        </Helmet>
+        <div className="container py-24 md:py-32 flex flex-col items-center justify-center text-center">
+          <div className="bg-amber-50 text-amber-800 p-4 rounded-full mb-6 ring-8 ring-amber-50/50">
+            <AlertCircle className="h-10 w-10" />
+          </div>
+          <h1 className="mb-3 font-heading text-3xl font-bold text-foreground">
+            No encontramos este producto
           </h1>
-          <Link to="/productos" className="text-primary hover:underline">
-            ← Volver al catálogo
-          </Link>
+          <p className="text-muted-foreground max-w-md mb-8 text-base">
+            Es posible que el enlace esté roto, que el producto haya sido eliminado o que aún no se encuentre publicado en nuestra tienda.
+          </p>
+          <Button asChild className="gap-2 rounded-xl px-6 py-6 font-semibold shadow-md">
+            <Link to="/productos">
+              <ArrowLeft className="h-4 w-4" />
+              Explorar el catálogo completo
+            </Link>
+          </Button>
         </div>
       </PublicLayout>
     );
@@ -142,7 +154,7 @@ const ProductDetail = () => {
           </div>
         </div>
 
-        {/* Estructura en grilla de دو columnas (Galería e Información) */}
+        {/* Estructura en grilla de columnas (Galería e Información) */}
         <div className="grid grid-cols-1 gap-8 md:gap-12 lg:grid-cols-12 lg:gap-16 items-start">
 
           {/* Columna Izquierda: Galería de imágenes con miniaturas y visualizador */}
