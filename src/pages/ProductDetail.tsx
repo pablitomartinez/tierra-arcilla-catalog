@@ -4,6 +4,8 @@ import { PublicLayout } from "@/layouts/PublicLayout";
 import { useProductBySlug } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
 
+import { Helmet } from "react-helmet-async";
+
 const ProductDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const { data: product, isLoading, isError } = useProductBySlug(slug);
@@ -39,6 +41,15 @@ const ProductDetail = () => {
 
   return (
     <PublicLayout>
+      {/* Aquí inyectamos las etiquetas dinámicas para WhatsApp/Redes */}
+      <Helmet>
+        <title>{product.title} | Tierra Arcilla</title>
+        <meta property="og:title" content={`${product.title} | Tierra Arcilla`} />
+        <meta property="og:description" content={product.description || "Pieza creada a mano con dedicación y detalles únicos."} />
+        {/* Supabase ya te devuelve la URL absoluta de la imagen */}
+        <meta property="og:image" content={product.image || "https://tierra-arcilla.vercel.app/logotipo.png"} />
+        <meta name="twitter:image" content={product.image || "https://tierra-arcilla.vercel.app/logotipo.png"} />
+      </Helmet>
       <div className="container py-8 md:py-12">
         <div className="mb-6">
           <Link to="/productos" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
